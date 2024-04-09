@@ -1,0 +1,10 @@
+spring:
+  docker:
+    compose:
+      file: docker-compose-local.yml
+  application:
+    name: mansur-dis-bot
+  datasource:
+    url: jdbc:postgresql://localhost:5432/qwerty
+    username: qwerty
+    password: qwerty
