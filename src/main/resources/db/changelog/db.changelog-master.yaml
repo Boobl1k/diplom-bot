@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/002.problem_groups.sql
   - include:
       file: db/changelog/003.problem_groups_2.sql
+  - include:
+      file: db/changelog/004.dis_problems.sql

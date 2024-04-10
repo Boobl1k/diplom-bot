@@ -8,3 +8,7 @@ spring:
     url: jdbc:postgresql://localhost:5432/qwerty
     username: qwerty
     password: qwerty
+logging:
+  level:
+    com:
+      example: DEBUG
