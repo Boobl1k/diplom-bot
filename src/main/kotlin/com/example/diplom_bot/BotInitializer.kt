@@ -2,7 +2,6 @@ package com.example.diplom_bot
 
 import Secrets
 import com.example.diplom_bot.model.BotProblemUnit
-import com.example.diplom_bot.model.GroupBotProblemUnit
 import com.example.diplom_bot.repository.ProblemGroupRepository
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
@@ -23,10 +22,25 @@ import org.springframework.stereotype.Component
 class BotInitializer(
     private val problemGroupRepository: ProblemGroupRepository
 ) : ApplicationRunner {
+
+    private enum class UserAction {
+        CHOOSE,
+        GO_BACK,
+        SEND_TICKET;
+
+        companion object {
+            fun getActionFromCallbackQueryData(callbackQueryData: String): UserAction {
+                return if (callbackQueryData.startsWith(BotProblemUnit.CHOOSE_CALLBACK_PREFIX)) CHOOSE
+                else if (callbackQueryData.startsWith(BotProblemUnit.GO_BACK_CALLBACK_PREFIX)) GO_BACK
+                else SEND_TICKET
+            }
+        }
+    }
+
     companion object : KLogging()
 
     private lateinit var allUnits: List<BotProblemUnit<*>>
-    private lateinit var rootUnits: List<BotProblemUnit<*>>
+    private lateinit var rootUnit: BotProblemUnit<*>
 
     override fun run(args: ApplicationArguments?) {
         loadProblemUnits()
@@ -35,9 +49,8 @@ class BotInitializer(
     }
 
     private fun loadProblemUnits() {
-        rootUnits = problemGroupRepository.findRootGroups().map { GroupBotProblemUnit.fromRootProblemGroup(it) }
-        allUnits =
-            mutableListOf<BotProblemUnit<*>>().apply { rootUnits.forEach { it.addAllConnectedUnitsToList(this) } }
+        rootUnit = BotProblemUnit.createRootBotProblemUnit(problemGroupRepository.findRootGroup())
+        allUnits = rootUnit.getAllConnectedUnits()
     }
 
     private fun createBot(): Bot {
@@ -46,7 +59,11 @@ class BotInitializer(
             logLevel = LogLevel.Error
             dispatch {
                 command("start") {
-                    bot.sendGroups(ChatId.fromId(message.chat.id), rootUnits)
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(message.chat.id),
+                        text = rootUnit.headerText,
+                        replyMarkup = rootUnit.buttons.toInlineKeyboardMarkup()
+                    )
                 }
 
                 command("reload") {
@@ -57,23 +74,30 @@ class BotInitializer(
                 callbackQuery {
                     logger.debug("callback {}: {}", callbackQuery.message?.chat?.username, callbackQuery.data)
                     val chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return@callbackQuery)
-                    if (callbackQuery.data.startsWith(BotProblemUnit.CHOOSE_CALLBACK_PREFIX)) {
-                        val group = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
-                        if (group.children.isNotEmpty()) {
-                            bot.sendGroups(chatId, group.children, group, callbackQuery.message?.messageId)
-                        } else {
-                            // TODO
+                    val messageId = callbackQuery.message!!.messageId
+
+                    val action = UserAction.getActionFromCallbackQueryData(callbackQuery.data)
+
+                    when (action) {
+                        UserAction.CHOOSE -> {
+                            val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
+                            bot.editMessageText(
+                                chatId = chatId,
+                                messageId = messageId,
+                                text = unit.headerText,
+                                replyMarkup = unit.buttons.toInlineKeyboardMarkup()
+                            )
                         }
-                        return@callbackQuery
-                    }
-                    if (callbackQuery.data.startsWith(BotProblemUnit.GO_BACK_CALLBACK_PREFIX)) {
-                        val group = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
-                        bot.sendGroups(
-                            chatId,
-                            group.parent?.children ?: rootUnits,
-                            group.parent,
-                            callbackQuery.message?.messageId
-                        )
+                        UserAction.GO_BACK -> {
+                            val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
+                            bot.editMessageText(
+                                chatId = chatId,
+                                messageId = messageId,
+                                text = unit.parent!!.headerText,
+                                replyMarkup = unit.parent.buttons.toInlineKeyboardMarkup()
+                            )
+                        }
+                        UserAction.SEND_TICKET -> {} // TODO
                     }
                 }
 
@@ -84,50 +108,14 @@ class BotInitializer(
         }
     }
 
-    private fun Bot.sendGroups(
-        chatId: ChatId,
-        groups: List<BotProblemUnit<*>>,
-        root: BotProblemUnit<*>? = null,
-        messageId: Long? = null
-    ) {
-        if (messageId != null) {
-            editMessageText(
-                chatId = chatId,
-                messageId = messageId,
-                text = "Выберите категорию проблемы:",
-                replyMarkup = groupsToInlineKeyboard(groups, root)
-            )
-        } else {
-            sendMessage(
-                chatId = chatId,
-                text = "Выберите категорию проблемы:",
-                replyMarkup = groupsToInlineKeyboard(groups, root)
-            )
-        }
-    }
-
-    private fun groupsToInlineKeyboard(
-        groups: List<BotProblemUnit<*>>,
-        root: BotProblemUnit<*>?
-    ): InlineKeyboardMarkup {
-        return InlineKeyboardMarkup.create(
-            buttons = groups.map {
-                listOf(
-                    InlineKeyboardButton.CallbackData(
-                        text = it.name,
-                        callbackData = it.chooseCallbackData
-                    )
+    private fun List<BotProblemUnit.Button>.toInlineKeyboardMarkup(): InlineKeyboardMarkup {
+        return InlineKeyboardMarkup.create(this.map {
+            listOf(
+                InlineKeyboardButton.CallbackData(
+                    text = it.name,
+                    callbackData = it.callBackData
                 )
-            } + (root?.let {
-                listOf(
-                    listOf(
-                        InlineKeyboardButton.CallbackData(
-                            text = "Назад",
-                            callbackData = it.goBackCallbackData
-                        )
-                    )
-                )
-            } ?: listOf())
-        )
+            )
+        })
     }
 }

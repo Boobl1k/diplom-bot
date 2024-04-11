@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/008.solution_step_picture_bytea.sql
   - include:
       file: db/changelog/009.problems.sql
+  - include:
+      file: db/changelog/010.root_group.sql
