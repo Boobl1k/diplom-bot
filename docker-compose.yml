@@ -7,6 +7,10 @@ services:
     image: mansoooor/diplom-bot
     environment:
       - DB=db
+    restart: always
+    depends_on:
+      db:
+        condition: service_started
   db:
     image: postgres:alpine3.19
     ports:
@@ -17,6 +21,7 @@ services:
       - POSTGRES_PASSWORD=qwerty
     volumes:
       - db-data:/var/lib/postgresql/data
+    restart: always
 
 volumes:
   db-data:
