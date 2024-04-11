@@ -5,7 +5,7 @@ spring:
   application:
     name: mansur-dis-bot
   datasource:
-    url: jdbc:postgresql://localhost:5432/qwerty
+    url: jdbc:postgresql://${DB:localhost}:5432/qwerty
     username: qwerty
     password: qwerty
 logging:

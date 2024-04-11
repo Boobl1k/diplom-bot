@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  bot:
+    build:
+      context: .
+    image: mansoooor/diplom-bot
+    environment:
+      - DB=db
+  db:
+    image: postgres:alpine3.19
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=qwerty
+      - POSTGRES_USER=qwerty
+      - POSTGRES_PASSWORD=qwerty
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
