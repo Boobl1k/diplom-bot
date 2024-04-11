@@ -7,3 +7,13 @@ databaseChangeLog:
       file: db/changelog/003.problem_groups_2.sql
   - include:
       file: db/changelog/004.dis_problems.sql
+  - include:
+      file: db/changelog/005.problems_description.sql
+  - include:
+      file: db/changelog/006.solutions_in_problems.sql
+  - include:
+      file: db/changelog/007.dis_problem_rename_external_dis_problem_id.sql
+  - include:
+      file: db/changelog/008.solution_step_picture_bytea.sql
+  - include:
+      file: db/changelog/009.problems.sql

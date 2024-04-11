@@ -1,10 +1,6 @@
 package com.example.diplom_bot.entity
 
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
+import jakarta.persistence.*
 
 @Entity
 class DisProblem(
@@ -12,9 +8,12 @@ class DisProblem(
     val problemGroup: ProblemGroup,
     val name: String,
     val description: String,
-    val disProblemId: Int
+    val externalDisProblemId: Int
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "disProblem")
+    val problems: List<Problem> = listOf()
 }
