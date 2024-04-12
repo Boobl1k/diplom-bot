@@ -2,6 +2,7 @@ package com.example.diplom_bot.entity
 
 import jakarta.persistence.*
 
+// TODO unused
 @Entity
 class SolutionStep(
     val stepNumber: Int,

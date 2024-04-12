@@ -12,3 +12,6 @@ logging:
   level:
     com:
       example: DEBUG
+
+bot-properties:
+  bot-token: ${BOT_TOKEN}

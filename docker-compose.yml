@@ -7,6 +7,7 @@ services:
     image: mansoooor/diplom-bot
     environment:
       - DB=db
+      - BOT_TOKEN=${BOT_TOKEN}
     restart: always
     depends_on:
       db:

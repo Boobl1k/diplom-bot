@@ -1,7 +1,7 @@
 package com.example.diplom_bot
 
-import Secrets
 import com.example.diplom_bot.model.BotProblemUnit
+import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.ProblemGroupRepository
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
@@ -20,7 +20,8 @@ import org.springframework.stereotype.Component
 
 @Component
 class BotInitializer(
-    private val problemGroupRepository: ProblemGroupRepository
+    private val problemGroupRepository: ProblemGroupRepository,
+    private val chatBotProperties: ChatBotProperties
 ) : ApplicationRunner {
 
     private enum class UserAction {
@@ -55,7 +56,7 @@ class BotInitializer(
 
     private fun createBot(): Bot {
         return bot {
-            token = Secrets.BOT_TOKEN
+            token = chatBotProperties.botToken
             logLevel = LogLevel.Error
             dispatch {
                 command("start") {
@@ -88,6 +89,7 @@ class BotInitializer(
                                 replyMarkup = unit.buttons.toInlineKeyboardMarkup()
                             )
                         }
+
                         UserAction.GO_BACK -> {
                             val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
                             bot.editMessageText(
@@ -97,6 +99,7 @@ class BotInitializer(
                                 replyMarkup = unit.parent.buttons.toInlineKeyboardMarkup()
                             )
                         }
+
                         UserAction.SEND_TICKET -> {} // TODO
                     }
                 }
