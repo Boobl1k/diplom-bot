@@ -15,3 +15,6 @@ logging:
 
 bot-properties:
   bot-token: ${BOT_TOKEN}
+  kfu-url: ${KFU_URL}
+  kfu-sub-path: ${KFU_SUB_PATH}
+  kfu-access-key: ${KFU_ACCESS_KEY}

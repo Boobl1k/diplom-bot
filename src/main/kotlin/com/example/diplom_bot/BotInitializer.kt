@@ -16,6 +16,7 @@ import com.github.kotlintelegrambot.logging.LogLevel
 import mu.KLogging
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 @Component
@@ -49,9 +50,12 @@ class BotInitializer(
         bot.startPolling()
     }
 
+    @Scheduled(cron = "0 0 0/1 * * ?")
     private fun loadProblemUnits() {
         rootUnit = BotProblemUnit.createRootBotProblemUnit(problemGroupRepository.findRootGroup())
         allUnits = rootUnit.getAllConnectedUnits()
+
+        logger.info { "bot updated" }
     }
 
     private fun createBot(): Bot {

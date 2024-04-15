@@ -19,9 +19,16 @@ sealed class BotProblemUnit<T>(
         const val GO_BACK_CALLBACK_PREFIX = "back"
 
         fun createRootBotProblemUnit(problemGroup: ProblemGroup): BotProblemUnit<*> {
-            return GroupBotProblemUnit(problemGroup)
+            return GroupBotProblemUnit(problemGroup, null)
         }
     }
+
+    val isRoot: Boolean
+        get() = parent == null
+
+    abstract val children: List<BotProblemUnit<*>>
+    abstract val headerText: String
+    abstract val buttons: List<Button>
 
     fun getAllConnectedUnits(): List<BotProblemUnit<*>> {
         return mutableListOf<BotProblemUnit<*>>().also { addAllConnectedUnitsToList(it) }
@@ -32,42 +39,18 @@ sealed class BotProblemUnit<T>(
         children.forEach { it.addAllConnectedUnitsToList(list) }
     }
 
-    abstract val children: List<BotProblemUnit<*>>
-    abstract val headerText: String
-    abstract val buttons: List<Button>
-
-    val isRoot: Boolean
-        get() = parent == null
-
-    private class GroupBotProblemUnit(
-        parent: BotProblemUnit<*>?,
-        name: String,
-        description: String,
-        chooseCallbackData: String,
-        goBackCallbackData: String,
-        entity: ProblemGroup
-    ) : BotProblemUnit<ProblemGroup>(parent, name, description, chooseCallbackData, goBackCallbackData, entity) {
-        companion object {
-            const val GROUP_PREFIX = "group"
-        }
-
-        constructor(problemGroup: ProblemGroup, parent: BotProblemUnit<*>) : this(
+    private class GroupBotProblemUnit(problemGroup: ProblemGroup, parent: BotProblemUnit<*>?) :
+        BotProblemUnit<ProblemGroup>(
             parent = parent,
             name = problemGroup.name,
             description = problemGroup.description,
             chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
             goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
             problemGroup
-        )
-
-        constructor(problemGroup: ProblemGroup) : this(
-            parent = null,
-            name = problemGroup.name,
-            description = problemGroup.description,
-            chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
-            goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
-            problemGroup
-        )
+        ) {
+        companion object {
+            const val GROUP_PREFIX = "group"
+        }
 
         override val children: List<BotProblemUnit<*>> = entity.childGroups.map { GroupBotProblemUnit(it, this) } +
                 entity.disProblems.map { DisProblemBotProblemUnit(it, this) }
@@ -79,70 +62,55 @@ sealed class BotProblemUnit<T>(
                 if (isRoot) listOf() else listOf(Button(goBackCallbackData, "Назад"))
     }
 
-    private class DisProblemBotProblemUnit(
-        parent: BotProblemUnit<*>,
-        name: String,
-        description: String,
-        chooseCallbackData: String,
-        goBackCallbackData: String,
-        entity: DisProblem
-    ) : BotProblemUnit<DisProblem>(parent, name, description, chooseCallbackData, goBackCallbackData, entity) {
-        companion object {
-            const val DIS_PROBLEM_PREFIX = "dis_problem"
-        }
-
-        constructor(disProblem: DisProblem, parent: BotProblemUnit<*>) : this(
+    private open class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
+        BotProblemUnit<DisProblem>(
             parent = parent,
             name = disProblem.name,
             description = disProblem.description,
             chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_${DIS_PROBLEM_PREFIX}${disProblem.id}",
             goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_${DIS_PROBLEM_PREFIX}${disProblem.id}",
             entity = disProblem
-        )
+        ) {
+        companion object {
+            const val DIS_PROBLEM_PREFIX = "dis_problem"
+        }
 
-        override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
+        final override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
 
         override val headerText = if (children.isNotEmpty()) "Выбрана проблема: ${name}\nВыберите случай:"
-        else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет. Хотите создать заявку в ДИС?"
+        else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет." +
+                if (entity.enabled) " Хотите создать заявку в ДИС?" else ""
 
-        override val buttons: List<Button> = if (children.isEmpty()) listOf(
-            Button("123", "Создать заявку"), // TODO
-            Button(goBackCallbackData, "Назад")
-        ) else children.map { Button(it.chooseCallbackData, it.name) } + listOf(
-            Button("321", "Другое"),
-            Button(goBackCallbackData, "Назад")
-        )
+        final override val buttons: List<Button> =
+            if (entity.enabled) {
+                listOf(
+                    if (children.isEmpty()) Button("123", "Создать заявку") // TODO
+                    else Button("321", "Другое") // TODO
+                )
+            } else listOf<Button>() +
+                    listOf(Button(goBackCallbackData, "Назад"))
     }
 
-    private class ProblemBotProblemUnit(
-        parent: BotProblemUnit<*>,
-        name: String,
-        description: String?,
-        chooseCallbackData: String,
-        goBackCallbackData: String,
-        entity: Problem,
-    ) : BotProblemUnit<Problem>(parent, name, description, chooseCallbackData, goBackCallbackData, entity) {
+    private class ProblemBotProblemUnit(problem: Problem, parent: BotProblemUnit<*>) : BotProblemUnit<Problem>(
+        parent = parent,
+        name = problem.condition,
+        description = problem.description,
+        chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
+        goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
+        entity = problem
+    ) {
         companion object {
             const val PROBLEM_PREFIX = "problem"
         }
-
-        constructor(problem: Problem, parent: BotProblemUnit<*>) : this(
-            parent = parent,
-            name = problem.condition,
-            description = problem.description,
-            chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
-            goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
-            entity = problem
-        )
 
         override val children: List<BotProblemUnit<*>> = listOf()
 
         override val headerText =
             "Выбрана проблема: ${parent.name}\nВыбран случай: ${name}\nВозможное решение:\n\n${entity.solutionText}"
 
-        override val buttons: List<Button> = listOf(
-            Button("123", "Решение не помогло. Создать заявку в ДИС"),
-            Button(goBackCallbackData, "Назад")
-        )
+        override val buttons: List<Button> = if (entity.disProblem.enabled) listOf(
+            Button("123", "Решение не помогло. Создать заявку в ДИС")
+        ) else listOf<Button>() +
+                listOf(Button(goBackCallbackData, "Назад"))
     }
 }

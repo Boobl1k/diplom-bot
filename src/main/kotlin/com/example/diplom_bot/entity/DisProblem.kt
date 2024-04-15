@@ -6,9 +6,10 @@ import jakarta.persistence.*
 class DisProblem(
     @ManyToOne
     val problemGroup: ProblemGroup,
-    val name: String,
+    var name: String,
     val description: String,
-    val externalDisProblemId: Int
+    val externalDisProblemId: Int,
+    var enabled: Boolean
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
