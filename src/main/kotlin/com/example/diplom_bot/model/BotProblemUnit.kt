@@ -1,8 +1,11 @@
 package com.example.diplom_bot.model
 
+import com.example.diplom_bot.GO_START_CALLBACK_DATA
+import com.example.diplom_bot.chooseCallbackData
 import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.entity.Problem
 import com.example.diplom_bot.entity.ProblemGroup
+import com.example.diplom_bot.goBackCallbackData
 
 sealed class BotProblemUnit<T>(
     val parent: BotProblemUnit<*>?,
@@ -12,12 +15,7 @@ sealed class BotProblemUnit<T>(
     val goBackCallbackData: String,
     val entity: T
 ) {
-    data class Button(val callBackData: String, val name: String)
-
     companion object {
-        const val CHOOSE_CALLBACK_PREFIX = "choose"
-        const val GO_BACK_CALLBACK_PREFIX = "back"
-
         fun createRootBotProblemUnit(problemGroup: ProblemGroup): BotProblemUnit<*> {
             return GroupBotProblemUnit(problemGroup, null)
         }
@@ -44,14 +42,10 @@ sealed class BotProblemUnit<T>(
             parent = parent,
             name = problemGroup.name,
             description = problemGroup.description,
-            chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
-            goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_$GROUP_PREFIX${problemGroup.id}",
+            chooseCallbackData = problemGroup.chooseCallbackData,
+            goBackCallbackData = problemGroup.goBackCallbackData,
             problemGroup
         ) {
-        companion object {
-            const val GROUP_PREFIX = "group"
-        }
-
         override val children: List<BotProblemUnit<*>> = entity.childGroups.map { GroupBotProblemUnit(it, this) } +
                 entity.disProblems.map { DisProblemBotProblemUnit(it, this) }
 
@@ -59,7 +53,10 @@ sealed class BotProblemUnit<T>(
         else "Выбрана категория: ${name}\nВыберите категорию проблемы:"
 
         override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
-                if (isRoot) listOf() else listOf(Button(goBackCallbackData, "Назад"))
+                if (isRoot) listOf() else listOf(
+                    Button(goBackCallbackData, "Назад"),
+                    Button(GO_START_CALLBACK_DATA, "В начало")
+                )
     }
 
     private open class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
@@ -67,50 +64,38 @@ sealed class BotProblemUnit<T>(
             parent = parent,
             name = disProblem.name,
             description = disProblem.description,
-            chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_${DIS_PROBLEM_PREFIX}${disProblem.id}",
-            goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_${DIS_PROBLEM_PREFIX}${disProblem.id}",
+            chooseCallbackData = disProblem.chooseCallbackData,
+            goBackCallbackData = disProblem.goBackCallbackData,
             entity = disProblem
         ) {
-        companion object {
-            const val DIS_PROBLEM_PREFIX = "dis_problem"
-        }
-
         final override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
 
         override val headerText = if (children.isNotEmpty()) "Выбрана проблема: ${name}\nВыберите случай:"
-        else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет." +
-                if (entity.enabled) " Хотите создать заявку в ДИС?" else ""
+        else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет."
 
-        final override val buttons: List<Button> =
-            if (entity.enabled) {
+        final override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
                 listOf(
-                    if (children.isEmpty()) Button("123", "Создать заявку") // TODO
-                    else Button("321", "Другое") // TODO
+                    Button(goBackCallbackData, "Назад"),
+                    Button(GO_START_CALLBACK_DATA, "В начало")
                 )
-            } else listOf<Button>() +
-                    listOf(Button(goBackCallbackData, "Назад"))
     }
 
     private class ProblemBotProblemUnit(problem: Problem, parent: BotProblemUnit<*>) : BotProblemUnit<Problem>(
         parent = parent,
         name = problem.condition,
         description = problem.description,
-        chooseCallbackData = "${CHOOSE_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
-        goBackCallbackData = "${GO_BACK_CALLBACK_PREFIX}_${PROBLEM_PREFIX}${problem.id}",
+        chooseCallbackData = problem.chooseCallbackData,
+        goBackCallbackData = problem.goBackCallbackData,
         entity = problem
     ) {
-        companion object {
-            const val PROBLEM_PREFIX = "problem"
-        }
-
         override val children: List<BotProblemUnit<*>> = listOf()
 
         override val headerText =
             "Выбрана проблема: ${parent.name}\nВыбран случай: ${name}\nВозможное решение:\n\n${entity.solutionText}"
 
-        override val buttons: List<Button> = if (entity.disProblem.enabled) listOf(
-            Button("123", "Решение не помогло. Создать заявку в ДИС")
-        ) else listOf<Button>() +
-                listOf(Button(goBackCallbackData, "Назад"))
+        override val buttons: List<Button> = listOf(
+            Button(goBackCallbackData, "Назад"),
+            Button(GO_START_CALLBACK_DATA, "В начало")
+        )
     }
 }

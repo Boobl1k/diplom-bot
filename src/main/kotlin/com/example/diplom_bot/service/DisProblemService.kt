@@ -41,13 +41,18 @@ class DisProblemService(
     fun findByDescription(description: String) : List<DisProblem> {
         val problems = disProblemRepository.findAll()
 
+        logger.debug("description: {}", description)
         val formattedDescription = formatDescription(description)
+        logger.debug("formatted: {}", formattedDescription)
 
         val problemsWithScores = problems.map {
             it.keyWords.sumOf { keyword ->
-                val regex = Regex("\\b${Regex.escape(keyword.keyWord)}\\b", RegexOption.IGNORE_CASE)
-                regex.findAll(description).count().toLong() * keyword.weight
+                val regex = Regex(Regex.escape(keyword.keyWord), RegexOption.IGNORE_CASE)
+                regex.findAll(formattedDescription).count().toLong() * keyword.weight
             } to it
+        }
+        problemsWithScores.sortedByDescending { it.first }.take(10).forEach {
+            logger.debug("{} {}", it.first, it.second.name)
         }
 
         return problemsWithScores.sortedByDescending { it.first }.take(5).map { it.second }
