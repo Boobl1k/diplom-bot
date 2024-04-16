@@ -13,7 +13,7 @@ class DisProblemService(
     private val kfuClientAdapter: KfuClientAdapter,
     private val disProblemRepository: DisProblemRepository
 ) {
-    companion object: KLogging()
+    companion object : KLogging()
 
     @Scheduled(cron = "0 0 0/1 * * ?")
     @Transactional
@@ -24,13 +24,13 @@ class DisProblemService(
         entities.forEach { entity ->
             val external = externalProblemTypesList.find { it.id == entity.externalDisProblemId }
             entity.enabled = external != null
-            if(external != null) {
+            if (external != null) {
                 entity.name = external.name
             }
         }
 
         externalProblemTypesList.forEach { external ->
-            if(entities.none { it.externalDisProblemId == external.id }) {
+            if (entities.none { it.externalDisProblemId == external.id }) {
                 logger.warn("Problem type \"{}\" not found, external id = {}", external.name, external.id)
             }
         }
@@ -38,7 +38,7 @@ class DisProblemService(
         logger.info { "DIS problems updated" }
     }
 
-    fun findByDescription(description: String) : List<DisProblem> {
+    fun findByDescription(description: String): List<DisProblem> {
         val problems = disProblemRepository.findAll()
 
         logger.debug("description: {}", description)
@@ -55,7 +55,11 @@ class DisProblemService(
             logger.debug("{} {}", it.first, it.second.name)
         }
 
-        return problemsWithScores.sortedByDescending { it.first }.take(5).map { it.second }
+        return problemsWithScores
+            .filter { it.first > 5 }
+            .sortedByDescending { it.first }
+            .take(5)
+            .map { it.second }
     }
 
     private fun formatDescription(description: String): String {

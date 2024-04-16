@@ -1,6 +1,6 @@
 package com.example.diplom_bot.model
 
-import com.example.diplom_bot.GO_START_CALLBACK_DATA
+import com.example.diplom_bot.CallbackData
 import com.example.diplom_bot.chooseCallbackData
 import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.entity.Problem
@@ -55,7 +55,7 @@ sealed class BotProblemUnit<T>(
         override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
                 if (isRoot) listOf() else listOf(
                     Button(goBackCallbackData, "Назад"),
-                    Button(GO_START_CALLBACK_DATA, "В начало")
+                    Button(CallbackData.GO_START, "В начало")
                 )
     }
 
@@ -76,7 +76,7 @@ sealed class BotProblemUnit<T>(
         final override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
                 listOf(
                     Button(goBackCallbackData, "Назад"),
-                    Button(GO_START_CALLBACK_DATA, "В начало")
+                    Button(CallbackData.GO_START, "В начало")
                 )
     }
 
@@ -95,7 +95,7 @@ sealed class BotProblemUnit<T>(
 
         override val buttons: List<Button> = listOf(
             Button(goBackCallbackData, "Назад"),
-            Button(GO_START_CALLBACK_DATA, "В начало")
+            Button(CallbackData.GO_START, "В начало")
         )
     }
 }
