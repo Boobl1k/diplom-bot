@@ -20,7 +20,7 @@ class KeyWordService(
     fun loadKeyWords() {
         val disProblems = disProblemRepository.findAll()
 
-        val csvReader = CSVReaderBuilder(resource.file.reader()).build()
+        val csvReader = CSVReaderBuilder(resource.inputStream.reader()).build()
 
         val keyWords = csvReader.use { reader ->
             reader.readAll()
