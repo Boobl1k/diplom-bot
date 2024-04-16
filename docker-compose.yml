@@ -8,6 +8,9 @@ services:
     environment:
       - DB=db
       - BOT_TOKEN=${BOT_TOKEN}
+      - KFU_URL=${KFU_URL}
+      - KFU_SUB_PATH=${KFU_SUB_PATH}
+      - KFU_ACCESS_KEY=${KFU_ACCESS_KEY}
     restart: always
     depends_on:
       db:

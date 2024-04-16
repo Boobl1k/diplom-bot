@@ -17,4 +17,7 @@ class DisProblem(
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "disProblem")
     val problems: List<Problem> = listOf()
+
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "disProblem")
+    val keyWords: List<KeyWord> = listOf()
 }

@@ -3,6 +3,8 @@ package com.example.diplom_bot
 import com.example.diplom_bot.model.BotProblemUnit
 import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.ProblemGroupRepository
+import com.example.diplom_bot.service.DisProblemService
+import com.example.diplom_bot.service.KeyWordService
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -22,7 +24,9 @@ import org.springframework.stereotype.Component
 @Component
 class BotInitializer(
     private val problemGroupRepository: ProblemGroupRepository,
-    private val chatBotProperties: ChatBotProperties
+    private val chatBotProperties: ChatBotProperties,
+    private val keyWordService: KeyWordService,
+    private val disProblemService: DisProblemService
 ) : ApplicationRunner {
 
     private enum class UserAction {
@@ -45,6 +49,8 @@ class BotInitializer(
     private lateinit var rootUnit: BotProblemUnit<*>
 
     override fun run(args: ApplicationArguments?) {
+        keyWordService.loadKeyWords()
+
         loadProblemUnits()
         val bot = createBot()
         bot.startPolling()
