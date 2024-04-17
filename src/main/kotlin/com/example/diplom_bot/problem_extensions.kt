@@ -13,6 +13,8 @@ val DisProblem.chooseCallbackData
     get() = "${CallbackPrefix.CHOOSE}_${CallbackPrefix.DIS_PROBLEM}${id}"
 val DisProblem.goBackCallbackData
     get() = "${CallbackPrefix.GO_BACK}_${CallbackPrefix.DIS_PROBLEM}${id}"
+val DisProblem.sendTicketCallbackData
+    get() = "${CallbackPrefix.SEND_TICKET}_${id}"
 
 val Problem.chooseCallbackData
     get() = "${CallbackPrefix.CHOOSE}_${CallbackPrefix.PROBLEM}${id}"

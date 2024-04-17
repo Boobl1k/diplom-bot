@@ -1,5 +1,6 @@
 package com.example.diplom_bot
 
+import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.enum.UserAction
 import com.example.diplom_bot.model.BotProblemUnit
 import com.example.diplom_bot.model.Button
@@ -110,6 +111,27 @@ class BotInitializer(
 
                         UserAction.GO_START -> {
                             bot.sendStartMessage(chatId)
+                        }
+
+                        UserAction.SEND_TICKET -> {
+                            val unit = allUnits.find {
+                                it is BotProblemUnit.DisProblemBotProblemUnit &&
+                                        it.sendTicketCallbackData == callbackQuery.data
+                            }!!
+                            val disProblem = unit.entity as DisProblem
+                            bot.sendMessage(
+                                chatId = chatId,
+                                text = """Для того, чтобы создать заявку: 
+                                |1. Войдите в личный кабинет в https://kpfu.ru/
+                                |2. Выберите раздел "ЗАЯВКИ НА IT-УСЛУГИ"
+                                |3. Выберите "НОВАЯ ЗАЯВКА НА ОБСЛУЖИВАНИЕ IT-ИНФРАСТРУКТУРЫ"
+                                |4. Тип заявки выберите ${disProblem.problemGroup.name} -> ${disProblem.name}
+                                |5. Подробно опишите проблему в поле "Текст заявки"
+                                |6. Заполните недостающие контактные данные
+                                |7. Нажмите "Отправить заявку"
+                            """.trimMargin(),
+                                replyMarkup = listOf(Button(CallbackData.GO_START, "В начало")).toInlineKeyboardMarkup()
+                            )
                         }
                     }
                 }

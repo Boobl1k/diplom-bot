@@ -23,6 +23,10 @@ enum class UserAction {
     GO_BACK {
         override val callBackPrefix: String
             get() = CallbackPrefix.GO_BACK
+    },
+    SEND_TICKET {
+        override val callBackPrefix: String
+            get() = CallbackPrefix.SEND_TICKET
     };
 
     abstract val callBackPrefix: String

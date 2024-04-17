@@ -6,6 +6,7 @@ import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.entity.Problem
 import com.example.diplom_bot.entity.ProblemGroup
 import com.example.diplom_bot.goBackCallbackData
+import com.example.diplom_bot.sendTicketCallbackData
 
 sealed class BotProblemUnit<T>(
     val parent: BotProblemUnit<*>?,
@@ -37,7 +38,7 @@ sealed class BotProblemUnit<T>(
         children.forEach { it.addAllConnectedUnitsToList(list) }
     }
 
-    private class GroupBotProblemUnit(problemGroup: ProblemGroup, parent: BotProblemUnit<*>?) :
+    class GroupBotProblemUnit(problemGroup: ProblemGroup, parent: BotProblemUnit<*>?) :
         BotProblemUnit<ProblemGroup>(
             parent = parent,
             name = problemGroup.name,
@@ -59,7 +60,7 @@ sealed class BotProblemUnit<T>(
                 )
     }
 
-    private open class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
+    open class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
         BotProblemUnit<DisProblem>(
             parent = parent,
             name = disProblem.name,
@@ -68,19 +69,22 @@ sealed class BotProblemUnit<T>(
             goBackCallbackData = disProblem.goBackCallbackData,
             entity = disProblem
         ) {
+        val sendTicketCallbackData = entity.sendTicketCallbackData
+
         final override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
 
-        override val headerText = if (children.isNotEmpty()) "Выбрана проблема: ${name}\nВыберите случай:"
+        override val headerText = if (children.isNotEmpty()) "Выбрана проблема: ${name}\nВыберите случай"
         else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет."
 
         final override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
                 listOf(
+                    Button(sendTicketCallbackData, "Хочу создать заявку"),
                     Button(goBackCallbackData, "Назад"),
                     Button(CallbackData.GO_START, "В начало")
                 )
     }
 
-    private class ProblemBotProblemUnit(problem: Problem, parent: BotProblemUnit<*>) : BotProblemUnit<Problem>(
+    class ProblemBotProblemUnit(problem: Problem, parent: DisProblemBotProblemUnit) : BotProblemUnit<Problem>(
         parent = parent,
         name = problem.condition,
         description = problem.description,
@@ -94,6 +98,7 @@ sealed class BotProblemUnit<T>(
             "Выбрана проблема: ${parent.name}\nВыбран случай: ${name}\nВозможное решение:\n\n${entity.solutionText}"
 
         override val buttons: List<Button> = listOf(
+            Button(parent.sendTicketCallbackData, "Хочу создать заявку"),
             Button(goBackCallbackData, "Назад"),
             Button(CallbackData.GO_START, "В начало")
         )

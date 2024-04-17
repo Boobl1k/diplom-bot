@@ -7,4 +7,6 @@ object CallbackPrefix {
     const val GROUP = "group"
     const val DIS_PROBLEM = "dis_problem"
     const val PROBLEM = "problem"
+
+    const val SEND_TICKET = "send_ticket"
 }
