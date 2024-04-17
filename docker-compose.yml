@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   bot:
     build:
@@ -17,8 +15,6 @@ services:
         condition: service_started
   db:
     image: postgres:alpine3.19
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_DB=qwerty
       - POSTGRES_USER=qwerty
