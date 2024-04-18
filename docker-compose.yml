@@ -9,6 +9,12 @@ services:
       - KFU_URL=${KFU_URL}
       - KFU_SUB_PATH=${KFU_SUB_PATH}
       - KFU_ACCESS_KEY=${KFU_ACCESS_KEY}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_SENDER_EMAIL=${MAIL_SENDER_EMAIL}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
     restart: always
     depends_on:
       db:
