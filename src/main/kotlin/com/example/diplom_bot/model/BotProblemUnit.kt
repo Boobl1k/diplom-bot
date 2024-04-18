@@ -6,7 +6,6 @@ import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.entity.Problem
 import com.example.diplom_bot.entity.ProblemGroup
 import com.example.diplom_bot.goBackCallbackData
-import com.example.diplom_bot.sendTicketCallbackData
 
 sealed class BotProblemUnit<T>(
     val parent: BotProblemUnit<*>?,
@@ -60,7 +59,7 @@ sealed class BotProblemUnit<T>(
                 )
     }
 
-    open class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
+    class DisProblemBotProblemUnit(disProblem: DisProblem, parent: BotProblemUnit<*>) :
         BotProblemUnit<DisProblem>(
             parent = parent,
             name = disProblem.name,
@@ -69,16 +68,14 @@ sealed class BotProblemUnit<T>(
             goBackCallbackData = disProblem.goBackCallbackData,
             entity = disProblem
         ) {
-        val sendTicketCallbackData = entity.sendTicketCallbackData
-
-        final override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
+        override val children: List<BotProblemUnit<*>> = entity.problems.map { ProblemBotProblemUnit(it, this) }
 
         override val headerText = if (children.isNotEmpty()) "Выбрана проблема: ${name}\nВыберите случай"
         else "Выбрана проблема: ${name}\nК сожалению, готовых решений для Вас нет."
 
-        final override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
+        override val buttons: List<Button> = children.map { Button(it.chooseCallbackData, it.name) } +
                 listOf(
-                    Button(sendTicketCallbackData, "Хочу создать заявку"),
+                    Button(CallbackData.GO_SEND_TICKET, "Хочу создать заявку"),
                     Button(goBackCallbackData, "Назад"),
                     Button(CallbackData.GO_START, "В начало")
                 )
@@ -98,7 +95,7 @@ sealed class BotProblemUnit<T>(
             "Выбрана проблема: ${parent.name}\nВыбран случай: ${name}\nВозможное решение:\n\n${entity.solutionText}"
 
         override val buttons: List<Button> = listOf(
-            Button(parent.sendTicketCallbackData, "Хочу создать заявку"),
+            Button(CallbackData.GO_SEND_TICKET, "Хочу создать заявку"),
             Button(goBackCallbackData, "Назад"),
             Button(CallbackData.GO_START, "В начало")
         )

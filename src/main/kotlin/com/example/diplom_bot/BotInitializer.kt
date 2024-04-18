@@ -1,6 +1,5 @@
 package com.example.diplom_bot
 
-import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.enum.UserAction
 import com.example.diplom_bot.model.BotProblemUnit
 import com.example.diplom_bot.model.Button
@@ -10,17 +9,21 @@ import com.example.diplom_bot.repository.ProblemGroupRepository
 import com.example.diplom_bot.service.DisProblemService
 import com.example.diplom_bot.service.KeyWordService
 import com.example.diplom_bot.service.UserContainer
+import com.example.diplom_bot.service.UserProblemService
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
 import com.github.kotlintelegrambot.dispatcher.callbackQuery
 import com.github.kotlintelegrambot.dispatcher.command
+import com.github.kotlintelegrambot.dispatcher.contact
 import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
+import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
+import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.logging.LogLevel
 import mu.KLogging
 import org.springframework.boot.ApplicationArguments
@@ -34,7 +37,8 @@ class BotInitializer(
     private val chatBotProperties: ChatBotProperties,
     private val keyWordService: KeyWordService,
     private val disProblemService: DisProblemService,
-    private val userContainer: UserContainer
+    private val userContainer: UserContainer,
+    private val userProblemService: UserProblemService
 ) : ApplicationRunner {
     companion object : KLogging()
 
@@ -81,23 +85,32 @@ class BotInitializer(
 
                     val chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return@callbackQuery)
 
+                    val user = userContainer.find(chatId.id)
+
                     val action = UserAction.getActionFromCallbackQueryData(callbackQuery.data)
 
                     when (action) {
                         UserAction.CHOOSE -> {
-                            userContainer.setUserState(chatId.id, User.State.OTHER)
                             val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
+                            if (unit is BotProblemUnit.DisProblemBotProblemUnit) {
+                                user.getCurrentProblem().disProblem = unit.entity
+                            }
+                            if (unit is BotProblemUnit.ProblemBotProblemUnit) {
+                                user.getCurrentProblem().disProblem = unit.entity.disProblem
+                                user.getCurrentProblem().problemCase = unit.entity
+                            }
                             editMessage(unit.headerText, unit.buttons)
                         }
 
                         UserAction.GO_BACK -> {
-                            userContainer.setUserState(chatId.id, User.State.OTHER)
                             val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
+                            if (unit is BotProblemUnit.GroupBotProblemUnit) {
+                                user.clearCurrentProblem()
+                            }
                             editMessage(unit.parent!!.headerText, unit.parent.buttons)
                         }
 
                         UserAction.GO_WRITE_DESCRIPTION -> {
-                            userContainer.setUserState(chatId.id, User.State.WRITING_DESCRIPTION)
                             editMessage(
                                 "Напишите краткое описание проблемы, я постараюсь определить Вашу проблему",
                                 listOf(Button(CallbackData.GO_START, "Назад"))
@@ -105,7 +118,6 @@ class BotInitializer(
                         }
 
                         UserAction.GO_CHOOSE -> {
-                            userContainer.setUserState(chatId.id, User.State.OTHER)
                             editMessage(rootUnit.headerText, rootUnit.buttons)
                         }
 
@@ -113,14 +125,23 @@ class BotInitializer(
                             bot.sendStartMessage(chatId)
                         }
 
-                        UserAction.SEND_TICKET -> {
-                            val unit = allUnits.find {
-                                it is BotProblemUnit.DisProblemBotProblemUnit &&
-                                        it.sendTicketCallbackData == callbackQuery.data
-                            }!!
-                            val disProblem = unit.entity as DisProblem
-                            bot.sendMessage(
-                                chatId = chatId,
+                        UserAction.GO_SEND_TICKET -> {
+                            sendMessage(
+                                "Если вы хотите создать заявку самостоятельно, я могу предоставить вам инструкции. Или я могу сделать это за вас. Какой вариант вас интересует?",
+                                listOf(
+                                    Button(CallbackData.BOT_SEND_TICKET, "Пусть бот создаст"),
+                                    Button(CallbackData.SEND_TICKET_BY_MYSELF, "Сам создам")
+                                )
+                            )
+                        }
+
+                        UserAction.BOT_SEND_TICKET -> {
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        UserAction.SEND_TICKET_BY_MYSELF -> {
+                            val disProblem = user.getCurrentProblem().disProblem!!
+                            sendMessage(
                                 text = """Для того, чтобы создать заявку: 
                                 |1. Войдите в личный кабинет в https://kpfu.ru/
                                 |2. Выберите раздел "ЗАЯВКИ НА IT-УСЛУГИ"
@@ -130,9 +151,21 @@ class BotInitializer(
                                 |6. Заполните недостающие контактные данные
                                 |7. Нажмите "Отправить заявку"
                             """.trimMargin(),
-                                replyMarkup = listOf(Button(CallbackData.GO_START, "В начало")).toInlineKeyboardMarkup()
+                                listOf(Button(CallbackData.GO_START, "В начало"))
                             )
                         }
+
+                        UserAction.SEND_TICKET_SURE -> {
+                            userProblemService.sendProblemToSupport(user.getCurrentProblem(), user)
+                            sendMessage(
+                                "Ваша заявка отправлена. Ожидайте звонка",
+                                listOf(Button(CallbackData.GO_START, "В начало"))
+                            )
+                        }
+                    }
+
+                    if (action.userStateAfterAction != null) {
+                        user.state = action.userStateAfterAction!!
                     }
                 }
 
@@ -141,43 +174,143 @@ class BotInitializer(
                     val alias = message.chat.username
                     logger.debug("{} {}: {}", chatId.id, alias, this.text)
 
-                    if (userContainer.isUserWritingDescription(chatId.id)) {
-                        val footerButtons = listOf(
-                            Button(CallbackData.GO_DESCRIPTION, "Попробовать еще раз"),
-                            Button(CallbackData.GO_CHOOSE, "Выбрать категорию"),
-                            Button(CallbackData.GO_START, "В начало")
-                        )
+                    val user = userContainer.find(chatId.id)
 
-                        userContainer.setUserState(chatId.id, User.State.OTHER)
-                        val problems = disProblemService.findByDescription(text)
-                        if (problems.isEmpty()) {
-                            sendMessage(
-                                if (text.length < 15) "Ваше описание слишком короткое, попробуйте еще раз"
-                                else "Я не могу определить вашу проблему. Возможно в Вашем описании есть опечатки. Попробуйте еще раз",
-                                footerButtons
+                    when (user.state) {
+                        User.State.WRITING_DESCRIPTION -> {
+                            user.createNewProblem().apply {
+                                shortDescription = text
+                            }
+
+                            val footerButtons = listOf(
+                                Button(CallbackData.GO_DESCRIPTION, "Попробовать еще раз"),
+                                Button(CallbackData.GO_CHOOSE, "Выбрать категорию"),
+                                Button(CallbackData.GO_START, "В начало")
                             )
-                            userContainer.setUserState(chatId.id, User.State.OTHER)
-                        } else {
-                            val problemDescriptions = problems.mapIndexed { index, disProblem ->
-                                "${index + 1}. ${disProblem.problemGroup.name} -> ${disProblem.name}\n"
-                            }.joinToString(separator = "") { it }
-                            sendMessage(
-                                """Выберите проблему:
-                                |$problemDescriptions
-                                |Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
-                            """.trimMargin(),
-                                problems.mapIndexed { index, disProblem ->
-                                    Button(
-                                        disProblem.chooseCallbackData,
-                                        "${index + 1}. ${disProblem.name}"
-                                    )
-                                } + footerButtons
-                            )
+
+                            user.state = User.State.OTHER
+                            val problems = disProblemService.findByDescription(text)
+                            if (problems.isEmpty()) {
+                                sendMessage(
+                                    if (text.length < 15) "Ваше описание слишком короткое, попробуйте еще раз"
+                                    else "Я не могу определить вашу проблему. Возможно в Вашем описании есть опечатки. Попробуйте еще раз",
+                                    footerButtons
+                                )
+                            } else {
+                                val problemDescriptions = problems.mapIndexed { index, disProblem ->
+                                    "${index + 1}. ${disProblem.problemGroup.name} -> ${disProblem.name}\n"
+                                }.joinToString(separator = "") { it }
+                                sendMessage(
+                                    """Выберите проблему:
+                                        |$problemDescriptions
+                                        |Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
+                                    """.trimMargin(),
+                                    problems.mapIndexed { index, disProblem ->
+                                        Button(
+                                            disProblem.chooseCallbackData,
+                                            "${index + 1}. ${disProblem.name}"
+                                        )
+                                    } + footerButtons
+                                )
+                            }
                         }
+
+                        User.State.SENDING_NAME -> {
+                            user.name = text
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        User.State.SENDING_PHONE -> {
+                            user.phone = text
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        User.State.SENDING_ADDRESS -> {
+                            user.address = text
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        User.State.SENDING_OFFICE_NUMBER -> {
+                            user.officeNumber = text
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        User.State.SENDING_PROBLEM_DETAILS -> {
+                            user.getCurrentProblem().details = text
+                            bot.handleBotSendingTicket(user)
+                        }
+
+                        User.State.OTHER -> {}
                     }
+                }
+
+                contact {
+                    val user = userContainer.find(chatId = message.chat.id)
+                    user.phone = contact.phoneNumber
+                    bot.handleBotSendingTicket(user)
                 }
             }
         }
+    }
+
+    private fun Bot.handleBotSendingTicket(user: User) {
+        val chatId = ChatId.fromId(user.chatId)
+        if (user.name == null) {
+            user.state = User.State.SENDING_NAME
+            sendMessage(
+                chatId = chatId,
+                text = "Напишите пожалуйста свои ФИО"
+            )
+            return
+        }
+        if (user.phone == null) {
+            user.state = User.State.SENDING_PHONE
+            sendMessage(
+                chatId = chatId,
+                text = "Пожалуйста поделитесь контактом или напишите контактный номер телефона",
+                replyMarkup = KeyboardReplyMarkup(
+                    KeyboardButton(
+                        "Отправить контакт",
+                        requestContact = true
+                    ),
+                    resizeKeyboard = true
+                )
+            )
+            return
+        }
+        if (user.address == null) {
+            user.state = User.State.SENDING_ADDRESS
+            sendMessage(
+                chatId = chatId,
+                text = "Напишите пожалуйста рабочий адрес"
+            )
+            return
+        }
+        if (user.officeNumber == null) {
+            user.state = User.State.SENDING_OFFICE_NUMBER
+            sendMessage(
+                chatId = chatId,
+                text = "Напишите пожалуйста номер рабочего кабинета"
+            )
+            return
+        }
+        if (user.getCurrentProblem().details == null) {
+            user.state = User.State.SENDING_PROBLEM_DETAILS
+            sendMessage(
+                chatId = chatId,
+                text = "Опишите пожалуйста вашу проблему как можно подробнее"
+            )
+            return
+        }
+
+        sendMessage(
+            chatId = chatId,
+            text = "Мы готовы отправить вашу заявку. Нажмите кнопку, чтобы отправить",
+            replyMarkup = listOf(
+                Button(CallbackData.SEND_TICKET_SURE, "Отправить"),
+                Button(CallbackData.GO_START, "В начало")
+            ).toInlineKeyboardMarkup()
+        )
     }
 
     private fun CallbackQueryHandlerEnvironment.editMessage(text: String, buttons: List<Button>? = null) {
@@ -185,6 +318,15 @@ class BotInitializer(
         bot.editMessageText(
             chatId = chatId,
             messageId = callbackQuery.message!!.messageId,
+            text = text,
+            replyMarkup = buttons?.toInlineKeyboardMarkup()
+        )
+    }
+
+    private fun CallbackQueryHandlerEnvironment.sendMessage(text: String, buttons: List<Button>? = null) {
+        val chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return)
+        bot.sendMessage(
+            chatId = chatId,
             text = text,
             replyMarkup = buttons?.toInlineKeyboardMarkup()
         )
@@ -200,7 +342,6 @@ class BotInitializer(
     }
 
     private fun Bot.sendStartMessage(chatId: ChatId.Id) {
-        userContainer.setUserState(chatId.id, User.State.OTHER)
         sendMessage(
             chatId = chatId,
             text = """Я предлагаю Вам 2 варианта определения проблемы:

@@ -32,6 +32,7 @@ repositories {
 dependencies {
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.1.0")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     implementation("io.github.openfeign:feign-httpclient")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

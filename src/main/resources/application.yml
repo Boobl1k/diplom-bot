@@ -8,6 +8,18 @@ spring:
     url: jdbc:postgresql://${DB:localhost}:5432/qwerty
     username: qwerty
     password: qwerty
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+    protocol: smtps
 logging:
   level:
     com:
@@ -18,3 +30,5 @@ bot-properties:
   kfu-url: ${KFU_URL}
   kfu-sub-path: ${KFU_SUB_PATH}
   kfu-access-key: ${KFU_ACCESS_KEY}
+  mail-sender-email: ${MAIL_SENDER_EMAIL}
+  support-email: ${SUPPORT_EMAIL}
