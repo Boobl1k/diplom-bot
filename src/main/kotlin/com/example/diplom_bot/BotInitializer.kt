@@ -174,7 +174,7 @@ class BotInitializer(
                                     5. Подробно опишите проблему в поле "Текст заявки"
                                     6. Заполните недостающие контактные данные
                                     7. Нажмите "Отправить заявку"
-                                """.trimMargin(),
+                                """.trimIndent(),
                                 listOf(Button(CallbackData.GO_START, "В начало"))
                             )
                         }
@@ -243,7 +243,7 @@ class BotInitializer(
                                         Выберите проблему:
                                         $problemDescriptions
                                         Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
-                                    """.trimMargin(),
+                                    """.trimIndent(),
                                     problems.mapIndexed { index, disProblem ->
                                         Button(
                                             disProblem.chooseCallbackData,
@@ -338,9 +338,9 @@ class BotInitializer(
                                 chatId = ChatId.fromId(user.chatId),
                                 text = """
                                     Мои команды:
-                                    1. start - старт
-                                    2. solvemyproblem - попросить бота помочь решить Вашу проблему
-                                    3. updatemyinfo - обновить Ваши данные
+                                    1. /start - старт
+                                    2. /solvemyproblem - попросить бота помочь решить Вашу проблему
+                                    3. /updatemyinfo - обновить Ваши данные
                                 """.trimIndent()
                             )
                         }
@@ -491,7 +491,7 @@ class BotInitializer(
                 Я предлагаю Вам 2 варианта определения проблемы:
                 1. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
                 2. Я вам предлагаю категории, Вы выбираете нужную
-            """.trimMargin(),
+            """.trimIndent(),
             replyMarkup = listOf(
                 Button(UserAction.GO_WRITE_DESCRIPTION.callBackPrefix, "Хочу написать описание"),
                 Button(UserAction.GO_CHOOSE.callBackPrefix, "Хочу выбирать категории")

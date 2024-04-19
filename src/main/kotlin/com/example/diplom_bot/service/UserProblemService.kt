@@ -15,45 +15,46 @@ class UserProblemService(
 ) {
     @Transactional
     fun sendProblemToSupport(user: User) {
-        val text = """Сообщение отправлено чат-ботом
-            |
-            |Здравствуйте. Поступила заявка от пользователя на решение проблемы
-            |
-            |----------
-            |
-            |Данные заявителя:
-            |
-            |ФИО - ${user.name}
-            |Телефон - ${user.phone}
-            |Адрес - ${user.address}
-            |Номер кабинета - ${user.officeNumber}
-            |
-            |----------
-            |
-            |Вид проблемы:
-            |
-            |${user.currentProblem!!.disProblem!!.problemGroup.name} -> 
-            |${user.currentProblem!!.disProblem!!.name}
-            |
-            |Случай: 
-            |
-            |${user.currentProblem!!.problemCase?.condition ?: "Неопределенный"} 
-            |
-            |----------
-            |
-            |Краткое описание проблемы:
-            |
-            |${user.currentProblem!!.shortDescription ?: "Нет краткого описания"}
-            |
-            |----------
-            |
-            |Детали проблемы:
-            |
-            |${user.currentProblem!!.details!!}
-            |
-            |----------
-            |
-        """.trimMargin()
+        val text = """
+            Сообщение отправлено чат-ботом
+            
+            Здравствуйте. Поступила заявка от пользователя на решение проблемы
+            
+            ----------
+            
+            Данные заявителя:
+            
+            ФИО - ${user.name}
+            Телефон - ${user.phone}
+            Адрес - ${user.address}
+            Номер кабинета - ${user.officeNumber}
+            
+            ----------
+            
+            Вид проблемы:
+            
+            ${user.currentProblem!!.disProblem!!.problemGroup.name} -> 
+            ${user.currentProblem!!.disProblem!!.name}
+            
+            Случай: 
+            
+            ${user.currentProblem!!.problemCase?.condition ?: "Неопределенный"} 
+            
+            ----------
+            
+            Краткое описание проблемы:
+            
+            ${user.currentProblem!!.shortDescription ?: "Нет краткого описания"}
+            
+            ----------
+            
+            Детали проблемы:
+            
+            ${user.currentProblem!!.details!!}
+            
+            ----------
+            
+        """.trimIndent()
 
         mailService.sendEmail(chatBotProperties.supportEmail, "Чат-бот. Проблема пользователя ${user.name}", text)
         markProblemSent(user)
