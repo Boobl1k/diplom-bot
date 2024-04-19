@@ -88,10 +88,10 @@ class BotInitializer(
                         chatId = ChatId.fromId(message.chat.id),
                         text = """
                             Ваши данные:
-                            ФИО - ${user.name}
-                            Телефон - ${user.phone}
-                            Адрес - ${user.address}
-                            Номер кабинета - ${user.officeNumber}
+                            ФИО - ${user.name ?: ""}
+                            Телефон - ${user.phone ?: ""}
+                            Адрес - ${user.address ?: ""}
+                            Номер кабинета - ${user.officeNumber ?: ""}
                         """.trimIndent(),
                         replyMarkup = listOf(
                             Button(CallbackData.UPDATE_NAME, "Обновить ФИО"),
@@ -240,10 +240,10 @@ class BotInitializer(
                                 }.joinToString(separator = "") { it }
                                 sendMessage(
                                     """
-                                        Выберите проблему:
-                                        $problemDescriptions
-                                        Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
-                                    """.trimIndent(),
+                                        |Выберите проблему:
+                                        |$problemDescriptions
+                                        |Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
+                                    """.trimMargin(),
                                     problems.mapIndexed { index, disProblem ->
                                         Button(
                                             disProblem.chooseCallbackData,
