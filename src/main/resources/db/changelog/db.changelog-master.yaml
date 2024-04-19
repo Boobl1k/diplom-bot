@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/012.external_dis_problem_ids.sql
   - include:
       file: db/changelog/013.dis_problem_key_words.sql
+  - include:
+      file: db/changelog/014.users_and_user_problems.sql

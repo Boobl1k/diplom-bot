@@ -3,10 +3,10 @@ package com.example.diplom_bot.service
 import com.example.diplom_bot.client.KfuClientAdapter
 import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.repository.DisProblemRepository
-import jakarta.transaction.Transactional
 import mu.KLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class DisProblemService(
@@ -14,6 +14,8 @@ class DisProblemService(
     private val disProblemRepository: DisProblemRepository
 ) {
     companion object : KLogging()
+
+    private lateinit var problems: List<DisProblem>
 
     @Scheduled(cron = "0 0 0/1 * * ?")
     @Transactional
@@ -35,11 +37,16 @@ class DisProblemService(
             }
         }
 
+        problems = entities
+
         logger.info { "DIS problems updated" }
     }
 
+    @Transactional(readOnly = true)
     fun findByDescription(description: String): List<DisProblem> {
-        val problems = disProblemRepository.findAll()
+        if(!this::problems.isInitialized) {
+            problems = disProblemRepository.findAll()
+        }
 
         logger.debug("description: {}", description)
         val formattedDescription = formatDescription(description)

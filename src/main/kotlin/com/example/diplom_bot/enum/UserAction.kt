@@ -2,7 +2,7 @@ package com.example.diplom_bot.enum
 
 import com.example.diplom_bot.CallbackData
 import com.example.diplom_bot.CallbackPrefix
-import com.example.diplom_bot.model.User
+import com.example.diplom_bot.entity.User
 
 enum class UserAction {
     GO_WRITE_DESCRIPTION {
@@ -59,6 +59,30 @@ enum class UserAction {
         override val userStateAfterAction: User.State
             get() = User.State.OTHER
 
+    },
+    UPDATE_NAME {
+        override val callBackPrefix: String
+            get() = CallbackData.UPDATE_NAME
+        override val userStateAfterAction: User.State
+            get() = User.State.UPDATING_NAME
+    },
+    UPDATE_PHONE {
+        override val callBackPrefix: String
+            get() = CallbackData.UPDATE_PHONE
+        override val userStateAfterAction: User.State
+            get() = User.State.UPDATING_PHONE
+    },
+    UPDATE_ADDRESS {
+        override val callBackPrefix: String
+            get() = CallbackData.UPDATE_ADDRESS
+        override val userStateAfterAction: User.State
+            get() = User.State.UPDATING_ADDRESS
+    },
+    UPDATE_OFFICE_NUMBER {
+        override val callBackPrefix: String
+            get() = CallbackData.UPDATE_OFFICE_NUMBER
+        override val userStateAfterAction: User.State
+            get() = User.State.UPDATING_OFFICE_NUMBER
     };
 
     abstract val callBackPrefix: String

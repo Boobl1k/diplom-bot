@@ -1,24 +1,23 @@
 package com.example.diplom_bot
 
+import com.example.diplom_bot.entity.User
 import com.example.diplom_bot.enum.UserAction
 import com.example.diplom_bot.model.BotProblemUnit
 import com.example.diplom_bot.model.Button
-import com.example.diplom_bot.model.User
 import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.ProblemGroupRepository
 import com.example.diplom_bot.service.DisProblemService
 import com.example.diplom_bot.service.KeyWordService
-import com.example.diplom_bot.service.UserContainer
 import com.example.diplom_bot.service.UserProblemService
+import com.example.diplom_bot.service.UserService
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
-import com.github.kotlintelegrambot.dispatcher.callbackQuery
-import com.github.kotlintelegrambot.dispatcher.command
-import com.github.kotlintelegrambot.dispatcher.contact
+import com.github.kotlintelegrambot.dispatcher.*
 import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvironment
+import com.github.kotlintelegrambot.dispatcher.handlers.CommandHandlerEnvironment
+import com.github.kotlintelegrambot.dispatcher.handlers.ContactHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
-import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
@@ -31,6 +30,8 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW
+import org.springframework.transaction.support.TransactionTemplate
 
 @Component
 class BotInitializer(
@@ -38,8 +39,9 @@ class BotInitializer(
     private val chatBotProperties: ChatBotProperties,
     private val keyWordService: KeyWordService,
     private val disProblemService: DisProblemService,
-    private val userContainer: UserContainer,
-    private val userProblemService: UserProblemService
+    private val userService: UserService,
+    private val userProblemService: UserProblemService,
+    private val txTemplate: TransactionTemplate
 ) : ApplicationRunner {
     companion object : KLogging()
 
@@ -47,6 +49,7 @@ class BotInitializer(
     private lateinit var rootUnit: BotProblemUnit<*>
 
     override fun run(args: ApplicationArguments?) {
+        txTemplate.propagationBehavior = PROPAGATION_REQUIRES_NEW
         keyWordService.loadKeyWords()
 
         loadProblemUnits()
@@ -67,16 +70,39 @@ class BotInitializer(
             token = chatBotProperties.botToken
             logLevel = LogLevel.Error
             dispatch {
-                command("start") {
+                myCommand("start") {
                     bot.sendStartMessage(ChatId.fromId(message.chat.id))
                 }
 
-                command("reload") {
+                myCommand("solvemyproblem") {
+                    bot.sendStartMessage(ChatId.fromId(message.chat.id))
+                }
+
+                myCommand("reload") {
                     loadProblemUnits()
                     bot.sendMessage(chatId = ChatId.fromId(message.chat.id), text = "Бот был перезагружен")
                 }
 
-                callbackQuery {
+                myCommand("updatemyinfo") {user ->
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(message.chat.id),
+                        text = """
+                            Ваши данные:
+                            ФИО - ${user.name}
+                            Телефон - ${user.phone}
+                            Адрес - ${user.address}
+                            Номер кабинета - ${user.officeNumber}
+                        """.trimIndent(),
+                        replyMarkup = listOf(
+                            Button(CallbackData.UPDATE_NAME, "Обновить ФИО"),
+                            Button(CallbackData.UPDATE_PHONE, "Обновить номер телефон"),
+                            Button(CallbackData.UPDATE_ADDRESS, "Обновить рабочий адрес"),
+                            Button(CallbackData.UPDATE_OFFICE_NUMBER, "Обновить рабочий номер кабинета")
+                        ).toInlineKeyboardMarkup()
+                    )
+                }
+
+                myCallbackQuery { user ->
                     logger.debug(
                         "callback {} {}: {}",
                         callbackQuery.message?.chat?.id,
@@ -84,21 +110,17 @@ class BotInitializer(
                         callbackQuery.data
                     )
 
-                    val chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return@callbackQuery)
-
-                    val user = userContainer.find(chatId.id)
-
                     val action = UserAction.getActionFromCallbackQueryData(callbackQuery.data)
 
                     when (action) {
                         UserAction.CHOOSE -> {
                             val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
                             if (unit is BotProblemUnit.DisProblemBotProblemUnit) {
-                                user.getCurrentProblem().disProblem = unit.entity
+                                userProblemService.getCurrentProblem(user).disProblem = unit.entity
                             }
                             if (unit is BotProblemUnit.ProblemBotProblemUnit) {
-                                user.getCurrentProblem().disProblem = unit.entity.disProblem
-                                user.getCurrentProblem().problemCase = unit.entity
+                                userProblemService.getCurrentProblem(user).disProblem = unit.entity.disProblem
+                                userProblemService.getCurrentProblem(user).problemCase = unit.entity
                             }
                             editMessage(unit.headerText, unit.buttons)
                         }
@@ -106,7 +128,7 @@ class BotInitializer(
                         UserAction.GO_BACK -> {
                             val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
                             if (unit is BotProblemUnit.GroupBotProblemUnit) {
-                                user.clearCurrentProblem()
+                                userProblemService.clearCurrentProblem(user)
                             }
                             editMessage(unit.parent!!.headerText, unit.parent.buttons)
                         }
@@ -123,7 +145,7 @@ class BotInitializer(
                         }
 
                         UserAction.GO_START -> {
-                            bot.sendStartMessage(chatId)
+                            bot.sendStartMessage(ChatId.fromId(callbackQuery.message?.chat?.id!!))
                         }
 
                         UserAction.GO_SEND_TICKET -> {
@@ -141,17 +163,18 @@ class BotInitializer(
                         }
 
                         UserAction.SEND_TICKET_BY_MYSELF -> {
-                            val disProblem = user.getCurrentProblem().disProblem!!
+                            val disProblem = userProblemService.getCurrentProblem(user).disProblem!!
                             sendMessage(
-                                text = """Для того, чтобы создать заявку: 
-                                |1. Войдите в личный кабинет в https://kpfu.ru/
-                                |2. Выберите раздел "ЗАЯВКИ НА IT-УСЛУГИ"
-                                |3. Выберите "НОВАЯ ЗАЯВКА НА ОБСЛУЖИВАНИЕ IT-ИНФРАСТРУКТУРЫ"
-                                |4. Тип заявки выберите ${disProblem.problemGroup.name} -> ${disProblem.name}
-                                |5. Подробно опишите проблему в поле "Текст заявки"
-                                |6. Заполните недостающие контактные данные
-                                |7. Нажмите "Отправить заявку"
-                            """.trimMargin(),
+                                text = """
+                                    Для того, чтобы создать заявку: 
+                                    1. Войдите в личный кабинет в https://kpfu.ru/
+                                    2. Выберите раздел "ЗАЯВКИ НА IT-УСЛУГИ"
+                                    3. Выберите "НОВАЯ ЗАЯВКА НА ОБСЛУЖИВАНИЕ IT-ИНФРАСТРУКТУРЫ"
+                                    4. Тип заявки выберите ${disProblem.problemGroup.name} -> ${disProblem.name}
+                                    5. Подробно опишите проблему в поле "Текст заявки"
+                                    6. Заполните недостающие контактные данные
+                                    7. Нажмите "Отправить заявку"
+                                """.trimMargin(),
                                 listOf(Button(CallbackData.GO_START, "В начало"))
                             )
                         }
@@ -163,6 +186,22 @@ class BotInitializer(
                                 listOf(Button(CallbackData.GO_START, "В начало"))
                             )
                         }
+
+                        UserAction.UPDATE_NAME -> {
+                            sendMessage("Пожалуйста, напишите свои ФИО")
+                        }
+
+                        UserAction.UPDATE_PHONE -> {
+                            sendMessage("Пожалуйста, напишите свой номер телефона")
+                        }
+
+                        UserAction.UPDATE_ADDRESS -> {
+                            sendMessage("Пожалуйста, напишите свой рабочий адрес")
+                        }
+
+                        UserAction.UPDATE_OFFICE_NUMBER -> {
+                            sendMessage("Пожалуйста, напишите свой рабочий номер кабинета")
+                        }
                     }
 
                     if (action.userStateAfterAction != null) {
@@ -170,18 +209,14 @@ class BotInitializer(
                     }
                 }
 
-                text {
-                    if (text.startsWith('/')) return@text
+                myText { user ->
+                    logger.debug("{} {}: {}", message.chat.id, message.chat.username, this.text)
 
-                    val chatId = ChatId.fromId(message.chat.id)
-                    val alias = message.chat.username
-                    logger.debug("{} {}: {}", chatId.id, alias, this.text)
-
-                    val user = userContainer.find(chatId.id)
+                    if (text.startsWith('/')) return@myText
 
                     when (user.state) {
                         User.State.WRITING_DESCRIPTION -> {
-                            user.createNewProblem().apply {
+                            userProblemService.createNewProblem(user).apply {
                                 shortDescription = text
                             }
 
@@ -204,9 +239,10 @@ class BotInitializer(
                                     "${index + 1}. ${disProblem.problemGroup.name} -> ${disProblem.name}\n"
                                 }.joinToString(separator = "") { it }
                                 sendMessage(
-                                    """Выберите проблему:
-                                        |$problemDescriptions
-                                        |Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
+                                    """
+                                        Выберите проблему:
+                                        $problemDescriptions
+                                        Если вашей проблемы нет, Вы можете попробовать еще раз или найти проблему по категориям
                                     """.trimMargin(),
                                     problems.mapIndexed { index, disProblem ->
                                         Button(
@@ -220,35 +256,98 @@ class BotInitializer(
 
                         User.State.SENDING_NAME -> {
                             user.name = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваше имя"
+                            )
                             bot.handleBotSendingTicket(user)
                         }
 
                         User.State.SENDING_PHONE -> {
                             user.phone = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш номер",
+                                replyMarkup = ReplyKeyboardRemove()
+                            )
                             bot.handleBotSendingTicket(user)
                         }
 
                         User.State.SENDING_ADDRESS -> {
                             user.address = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш адрес"
+                            )
                             bot.handleBotSendingTicket(user)
                         }
 
                         User.State.SENDING_OFFICE_NUMBER -> {
                             user.officeNumber = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш номер кабинета"
+                            )
                             bot.handleBotSendingTicket(user)
                         }
 
                         User.State.SENDING_PROBLEM_DETAILS -> {
-                            user.getCurrentProblem().details = text
+                            userProblemService.getCurrentProblem(user).details = text
                             bot.handleBotSendingTicket(user)
                         }
 
-                        User.State.OTHER -> {}
+                        User.State.UPDATING_NAME -> {
+                            user.state = User.State.OTHER
+                            user.name = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваше имя"
+                            )
+                        }
+
+                        User.State.UPDATING_PHONE -> {
+                            user.state = User.State.OTHER
+                            user.phone = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш номер",
+                                replyMarkup = ReplyKeyboardRemove()
+                            )
+                        }
+
+                        User.State.UPDATING_ADDRESS -> {
+                            user.state = User.State.OTHER
+                            user.address = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш адрес"
+                            )
+                        }
+
+                        User.State.UPDATING_OFFICE_NUMBER -> {
+                            user.state = User.State.OTHER
+                            user.officeNumber = text
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = "Я записал Ваш номер кабинета"
+                            )
+                        }
+
+                        User.State.OTHER -> {
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(user.chatId),
+                                text = """
+                                    Мои команды:
+                                    1. start - старт
+                                    2. solvemyproblem - попросить бота помочь решить Вашу проблему
+                                    3. updatemyinfo - обновить Ваши данные
+                                """.trimIndent()
+                            )
+                        }
                     }
                 }
 
-                contact {
-                    val user = userContainer.find(chatId = message.chat.id)
+                myContact { user ->
                     user.phone = contact.phoneNumber
                     bot.sendMessage(
                         chatId = ChatId.fromId(user.chatId),
@@ -257,6 +356,42 @@ class BotInitializer(
                     )
                     bot.handleBotSendingTicket(user)
                 }
+            }
+        }
+    }
+
+    private fun Dispatcher.myCallbackQuery(callback: CallbackQueryHandlerEnvironment.(user: User) -> Unit) {
+        callbackQuery {
+            txTemplate.execute {
+                val user = userService.find(callbackQuery.message!!.chat.id)
+                callback(user)
+            }
+        }
+    }
+
+    private fun Dispatcher.myText(callback: TextHandlerEnvironment.(user: User) -> Unit) {
+        text {
+            txTemplate.execute {
+                val user = userService.find(message.chat.id)
+                callback(user)
+            }
+        }
+    }
+
+    private fun Dispatcher.myContact(callback: ContactHandlerEnvironment.(user: User) -> Unit) {
+        contact {
+            txTemplate.execute {
+                val user = userService.find(message.chat.id)
+                callback(user)
+            }
+        }
+    }
+
+    private fun Dispatcher.myCommand(command: String, callback: CommandHandlerEnvironment.(user: User) -> Unit) {
+        command(command) {
+            txTemplate.execute {
+                val user = userService.find(message.chat.id)
+                callback(user)
             }
         }
     }
@@ -302,7 +437,7 @@ class BotInitializer(
             )
             return
         }
-        if (user.getCurrentProblem().details == null) {
+        if (userProblemService.getCurrentProblem(user).details == null) {
             user.state = User.State.SENDING_PROBLEM_DETAILS
             sendMessage(
                 chatId = chatId,
@@ -352,9 +487,10 @@ class BotInitializer(
     private fun Bot.sendStartMessage(chatId: ChatId.Id) {
         sendMessage(
             chatId = chatId,
-            text = """Я предлагаю Вам 2 варианта определения проблемы:
-                |1. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
-                |2. Я вам предлагаю категории, Вы выбираете нужную
+            text = """
+                Я предлагаю Вам 2 варианта определения проблемы:
+                1. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
+                2. Я вам предлагаю категории, Вы выбираете нужную
             """.trimMargin(),
             replyMarkup = listOf(
                 Button(UserAction.GO_WRITE_DESCRIPTION.callBackPrefix, "Хочу написать описание"),
