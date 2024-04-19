@@ -22,6 +22,7 @@ import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
+import com.github.kotlintelegrambot.entities.ReplyKeyboardRemove
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.logging.LogLevel
@@ -156,7 +157,7 @@ class BotInitializer(
                         }
 
                         UserAction.SEND_TICKET_SURE -> {
-                            userProblemService.sendProblemToSupport(user.getCurrentProblem(), user)
+                            userProblemService.sendProblemToSupport(user)
                             sendMessage(
                                 "Ваша заявка отправлена. Ожидайте звонка",
                                 listOf(Button(CallbackData.GO_START, "В начало"))
@@ -170,6 +171,8 @@ class BotInitializer(
                 }
 
                 text {
+                    if (text.startsWith('/')) return@text
+
                     val chatId = ChatId.fromId(message.chat.id)
                     val alias = message.chat.username
                     logger.debug("{} {}: {}", chatId.id, alias, this.text)
@@ -247,6 +250,11 @@ class BotInitializer(
                 contact {
                     val user = userContainer.find(chatId = message.chat.id)
                     user.phone = contact.phoneNumber
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(user.chatId),
+                        text = "Контакт получен",
+                        replyMarkup = ReplyKeyboardRemove()
+                    )
                     bot.handleBotSendingTicket(user)
                 }
             }

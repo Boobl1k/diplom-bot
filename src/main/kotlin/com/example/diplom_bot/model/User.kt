@@ -21,13 +21,12 @@ class User(
     var name: String? = null
     var address: String? = null
     var officeNumber: String? = null
-    private val problems: MutableList<UserProblem> = mutableListOf()
+    val sentProblems: MutableList<UserProblem> = mutableListOf()
     private var currentProblem: UserProblem? = null
 
     fun createNewProblem(): UserProblem {
         val problem = UserProblem()
         currentProblem = problem
-        problems.add(problem)
         return problem
     }
 
@@ -37,6 +36,13 @@ class User(
 
     fun clearCurrentProblem() {
         currentProblem = null
+    }
+
+    fun markProblemSent() {
+        val problem = currentProblem!!
+        clearCurrentProblem()
+        problem.sent = true
+        sentProblems.add(problem)
     }
 }
 

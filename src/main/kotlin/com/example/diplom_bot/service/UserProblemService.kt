@@ -1,7 +1,6 @@
 package com.example.diplom_bot.service
 
 import com.example.diplom_bot.model.User
-import com.example.diplom_bot.model.UserProblem
 import com.example.diplom_bot.property.ChatBotProperties
 import org.springframework.stereotype.Service
 
@@ -10,7 +9,7 @@ class UserProblemService(
     private val mailService: MailService,
     private val chatBotProperties: ChatBotProperties
 ) {
-    fun sendProblemToSupport(userProblem: UserProblem, user: User) {
+    fun sendProblemToSupport(user: User) {
         val text = """Сообщение отправлено чат-ботом
             |
             |Здравствуйте. Поступила заявка от пользователя на решение проблемы
@@ -28,18 +27,19 @@ class UserProblemService(
             |
             |Краткое описание проблемы:
             |
-            |${userProblem.shortDescription ?: "Нет краткого описания"}
+            |${user.getCurrentProblem().shortDescription ?: "Нет краткого описания"}
             |
             |----------
             |
             |Детали проблемы:
             |
-            |${userProblem.details}
+            |${user.getCurrentProblem().details}
             |
             |----------
             |
         """.trimMargin()
 
         mailService.sendEmail(chatBotProperties.supportEmail, "Чат-бот. Проблема пользователя ${user.name}", text)
+        user.markProblemSent()
     }
 }
