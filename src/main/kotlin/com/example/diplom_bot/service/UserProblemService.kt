@@ -6,6 +6,7 @@ import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.UserProblemRepository
 import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
+import java.io.File
 
 @Service
 class UserProblemService(
@@ -14,8 +15,9 @@ class UserProblemService(
     private val userProblemRepository: UserProblemRepository
 ) {
     @Transactional
-    fun sendProblemToSupport(user: User) {
-        val text = """
+    fun sendProblemToSupport(user: User, screenshot: File? = null) {
+        val userProblem = user.currentProblem!!
+        var text = """
             Сообщение отправлено чат-ботом
             
             Здравствуйте. Поступила заявка от пользователя на решение проблемы
@@ -33,30 +35,75 @@ class UserProblemService(
             
             Вид проблемы:
             
-            ${user.currentProblem!!.disProblem!!.problemGroup.name} -> 
-            ${user.currentProblem!!.disProblem!!.name}
-            
-            Случай: 
-            
-            ${user.currentProblem!!.problemCase?.condition ?: "Неопределенный"} 
+            ${userProblem.disProblem!!.problemGroup.name} -> 
+            ${userProblem.disProblem!!.name}
             
             ----------
+        """.trimIndent()
+
+        if (userProblem.iasModule != null) {
+            text += """
+                
+                Модуль:
+                
+                ${userProblem.iasModule!!.name}
+                
+                ----------
+            """.trimIndent()
+
+            if (userProblem.iasService != null) {
+                text += """
+                    
+                    Сервис:
+                    
+                    ${userProblem.iasService!!.name}
+                    
+                    ----------
+                """.trimIndent()
+            }
+        }
+
+        if (userProblem.problemCase != null) {
+            text += """
+                
+                Случай: 
+                
+                ${userProblem.problemCase?.condition ?: "Неопределенный"} 
+                
+                ----------
+            """.trimIndent()
+        }
+
+        text += """
             
             Краткое описание проблемы:
             
-            ${user.currentProblem!!.shortDescription ?: "Нет краткого описания"}
+            ${userProblem.shortDescription ?: "Нет краткого описания"}
             
             ----------
             
             Детали проблемы:
             
-            ${user.currentProblem!!.details!!}
+            ${userProblem.details!!}
             
             ----------
             
         """.trimIndent()
 
-        mailService.sendEmail(chatBotProperties.supportEmail, "Чат-бот. Проблема пользователя ${user.name}", text)
+        if (screenshot != null) {
+            mailService.sendEmail(
+                address = chatBotProperties.supportEmail,
+                subject = "Чат-бот. Проблема пользователя ${user.name}",
+                message = text,
+                fileName = userProblem.fileName!!,
+                file = screenshot,
+            )
+        } else mailService.sendEmail(
+            address = chatBotProperties.supportEmail,
+            subject = "Чат-бот. Проблема пользователя ${user.name}",
+            message = text
+        )
+
         markProblemSent(user)
     }
 

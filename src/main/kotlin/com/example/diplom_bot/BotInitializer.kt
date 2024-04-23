@@ -1,5 +1,6 @@
 package com.example.diplom_bot
 
+import com.example.diplom_bot.entity.IASProblem
 import com.example.diplom_bot.entity.User
 import com.example.diplom_bot.enum.UserAction
 import com.example.diplom_bot.model.BotProblemUnit
@@ -18,20 +19,25 @@ import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvi
 import com.github.kotlintelegrambot.dispatcher.handlers.CommandHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.ContactHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
+import com.github.kotlintelegrambot.dispatcher.handlers.media.MediaHandlerEnvironment
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.ReplyKeyboardRemove
+import com.github.kotlintelegrambot.entities.files.Document
+import com.github.kotlintelegrambot.entities.files.PhotoSize
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import com.github.kotlintelegrambot.logging.LogLevel
 import mu.KLogging
+import org.apache.commons.io.FileUtils
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW
 import org.springframework.transaction.support.TransactionTemplate
+import java.io.File
 
 @Component
 class BotInitializer(
@@ -83,7 +89,7 @@ class BotInitializer(
                     bot.sendMessage(chatId = ChatId.fromId(message.chat.id), text = "Бот был перезагружен")
                 }
 
-                myCommand("updatemyinfo") {user ->
+                myCommand("updatemyinfo") { user ->
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
                         text = """
@@ -117,10 +123,24 @@ class BotInitializer(
                             val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
                             if (unit is BotProblemUnit.DisProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity
+                                userProblemService.getCurrentProblem(user).iasService = null
+                                userProblemService.getCurrentProblem(user).iasModule = null
                             }
                             if (unit is BotProblemUnit.ProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity.disProblem
                                 userProblemService.getCurrentProblem(user).problemCase = unit.entity
+                                userProblemService.getCurrentProblem(user).iasService = null
+                                userProblemService.getCurrentProblem(user).iasModule = null
+                            }
+                            if (unit is BotProblemUnit.IASProblemBotProblemUnit) {
+                                userProblemService.getCurrentProblem(user).disProblem = unit.entity
+                            }
+                            if (unit is BotProblemUnit.IASModuleBotProblemUnit) {
+                                userProblemService.getCurrentProblem(user).iasModule = unit.entity
+                            }
+                            if (unit is BotProblemUnit.IASServiceBotProblemUnit) {
+                                userProblemService.getCurrentProblem(user).iasModule = unit.entity.iasModule
+                                userProblemService.getCurrentProblem(user).iasService = unit.entity
                             }
                             editMessage(unit.headerText, unit.buttons)
                         }
@@ -180,7 +200,14 @@ class BotInitializer(
                         }
 
                         UserAction.SEND_TICKET_SURE -> {
-                            userProblemService.sendProblemToSupport(user)
+                            val fileId = user.currentProblem!!.fileId
+                            if (fileId != null) {
+                                val file = File.createTempFile("user_screenshot", "")
+                                FileUtils.writeByteArrayToFile(file, bot.downloadFileBytes(fileId)!!)
+                                userProblemService.sendProblemToSupport(user, file)
+                            } else {
+                                userProblemService.sendProblemToSupport(user)
+                            }
                             sendMessage(
                                 "Ваша заявка отправлена. Ожидайте звонка",
                                 listOf(Button(CallbackData.GO_START, "В начало"))
@@ -246,7 +273,8 @@ class BotInitializer(
                                     """.trimMargin(),
                                     problems.mapIndexed { index, disProblem ->
                                         Button(
-                                            disProblem.chooseCallbackData,
+                                            if (disProblem is IASProblem) disProblem.chooseCallbackData
+                                            else disProblem.chooseCallbackData,
                                             "${index + 1}. ${disProblem.name}"
                                         )
                                     } + footerButtons
@@ -295,6 +323,8 @@ class BotInitializer(
                             userProblemService.getCurrentProblem(user).details = text
                             bot.handleBotSendingTicket(user)
                         }
+
+                        User.State.SENDING_SCREENSHOTS -> {}
 
                         User.State.UPDATING_NAME -> {
                             user.state = User.State.OTHER
@@ -356,6 +386,23 @@ class BotInitializer(
                     )
                     bot.handleBotSendingTicket(user)
                 }
+
+                myPhotos { user ->
+                    if (user.state == User.State.SENDING_SCREENSHOTS) {
+                        val largestPhoto = media.maxBy { it.height }
+                        userProblemService.getCurrentProblem(user).fileId = largestPhoto.fileId
+                        userProblemService.getCurrentProblem(user).fileName = "screenshot.jpg"
+                        bot.handleBotSendingTicket(user)
+                    }
+                }
+
+                myDocument { user ->
+                    if (user.state == User.State.SENDING_SCREENSHOTS) {
+                        userProblemService.getCurrentProblem(user).fileId = media.fileId
+                        userProblemService.getCurrentProblem(user).fileName = media.fileName
+                        bot.handleBotSendingTicket(user)
+                    }
+                }
             }
         }
     }
@@ -389,6 +436,24 @@ class BotInitializer(
 
     private fun Dispatcher.myCommand(command: String, callback: CommandHandlerEnvironment.(user: User) -> Unit) {
         command(command) {
+            txTemplate.execute {
+                val user = userService.find(message.chat.id)
+                callback(user)
+            }
+        }
+    }
+
+    private fun Dispatcher.myPhotos(callback: MediaHandlerEnvironment<List<PhotoSize>>.(user: User) -> Unit) {
+        photos {
+            txTemplate.execute {
+                val user = userService.find(message.chat.id)
+                callback(user)
+            }
+        }
+    }
+
+    private fun Dispatcher.myDocument(callback: MediaHandlerEnvironment<Document>.(user: User) -> Unit) {
+        document {
             txTemplate.execute {
                 val user = userService.find(message.chat.id)
                 callback(user)
@@ -437,7 +502,36 @@ class BotInitializer(
             )
             return
         }
-        if (userProblemService.getCurrentProblem(user).details == null) {
+
+        if (userProblemService.getCurrentProblem(user).iasModule != null) {
+            val userProblem = userProblemService.getCurrentProblem(user)
+            val iasModule = userProblem.iasModule!!
+            val iasService = userProblem.iasService ?: iasModule.services[0]
+
+            if (userProblem.details == null) {
+                val infoList = mutableListOf<String>()
+                if (iasService.groupNeeded) infoList.add("Номер группы")
+                if (iasService.applicantName != null) infoList.add(iasService.applicantName)
+                if (iasService.additionalInfo != null) infoList.add(iasService.additionalInfo)
+
+                user.state = User.State.SENDING_PROBLEM_DETAILS
+                sendMessage(
+                    chatId = chatId,
+                    text = "Напишите пожалуйста следующую информацию одним сообщением: ${infoList.joinToString(", ")}"
+                )
+
+                return
+            }
+            if (userProblem.fileId == null) {
+                user.state = User.State.SENDING_SCREENSHOTS
+                sendMessage(
+                    chatId = chatId,
+                    text = "Отправьте пожалуйста скриншот"
+                )
+
+                return
+            }
+        } else if (userProblemService.getCurrentProblem(user).details == null) {
             user.state = User.State.SENDING_PROBLEM_DETAILS
             sendMessage(
                 chatId = chatId,

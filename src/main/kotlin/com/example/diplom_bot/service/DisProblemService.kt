@@ -25,7 +25,7 @@ class DisProblemService(
 
         entities.forEach { entity ->
             val external = externalProblemTypesList.find { it.id == entity.externalDisProblemId }
-            entity.enabled = external != null
+            //entity.enabled = external != null
             if (external != null) {
                 entity.name = external.name
             }
@@ -44,7 +44,7 @@ class DisProblemService(
 
     @Transactional(readOnly = true)
     fun findByDescription(description: String): List<DisProblem> {
-        if(!this::problems.isInitialized) {
+        if (!this::problems.isInitialized) {
             problems = disProblemRepository.findAll()
         }
 

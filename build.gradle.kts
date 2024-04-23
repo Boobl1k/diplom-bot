@@ -40,6 +40,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.github.microutils:kotlin-logging:3.0.5")
     implementation("com.opencsv:opencsv:5.9")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
 
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 
