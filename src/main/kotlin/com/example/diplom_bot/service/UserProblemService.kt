@@ -39,6 +39,7 @@ class UserProblemService(
             ${userProblem.disProblem!!.name}
             
             ----------
+            
         """.trimIndent()
 
         if (userProblem.iasModule != null) {
@@ -49,6 +50,7 @@ class UserProblemService(
                 ${userProblem.iasModule!!.name}
                 
                 ----------
+                
             """.trimIndent()
 
             if (userProblem.iasService != null) {
@@ -59,6 +61,7 @@ class UserProblemService(
                     ${userProblem.iasService!!.name}
                     
                     ----------
+                    
                 """.trimIndent()
             }
         }
@@ -71,6 +74,7 @@ class UserProblemService(
                 ${userProblem.problemCase?.condition ?: "Неопределенный"} 
                 
                 ----------
+                
             """.trimIndent()
         }
 
