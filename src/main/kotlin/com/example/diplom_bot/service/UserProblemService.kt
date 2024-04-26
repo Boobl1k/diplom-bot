@@ -15,7 +15,7 @@ class UserProblemService(
     private val userProblemRepository: UserProblemRepository
 ) {
     @Transactional
-    fun sendProblemToSupport(user: User, screenshot: File? = null) {
+    fun sendProblemToSupport(user: User, telegramAlias: String?, screenshot: File? = null) {
         val userProblem = user.currentProblem!!
         var text = """
             Сообщение отправлено чат-ботом
@@ -26,10 +26,8 @@ class UserProblemService(
             
             Данные заявителя:
             
-            ФИО - ${user.name}
             Телефон - ${user.phone}
-            Адрес - ${user.address}
-            Номер кабинета - ${user.officeNumber}
+            Телеграм - ${if (telegramAlias != null) "https://t.me/${telegramAlias}" else "по номеру телефона"}
             
             ----------
             
@@ -97,14 +95,14 @@ class UserProblemService(
         if (screenshot != null) {
             mailService.sendEmail(
                 address = chatBotProperties.supportEmail,
-                subject = "Чат-бот. Проблема пользователя ${user.name}",
+                subject = "Чат-бот. Проблема пользователя ${telegramAlias ?: user.phone}",
                 message = text,
                 fileName = userProblem.fileName!!,
                 file = screenshot,
             )
         } else mailService.sendEmail(
             address = chatBotProperties.supportEmail,
-            subject = "Чат-бот. Проблема пользователя ${user.name}",
+            subject = "Чат-бот. Проблема пользователя ${telegramAlias ?: user.phone}",
             message = text
         )
 

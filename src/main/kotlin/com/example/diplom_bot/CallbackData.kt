@@ -10,8 +10,5 @@ object CallbackData {
     const val SEND_TICKET_BY_MYSELF = "send_ticket_myself"
     const val SEND_TICKET_SURE = "send_ticket_sure"
 
-    const val UPDATE_NAME = "update_name"
     const val UPDATE_PHONE = "update_phone"
-    const val UPDATE_ADDRESS = "update_address"
-    const val UPDATE_OFFICE_NUMBER = "update_office_number"
 }

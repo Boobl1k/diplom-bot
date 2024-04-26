@@ -39,3 +39,7 @@ databaseChangeLog:
       file: db/changelog/019.IAS_services.sql
   - include:
       file: db/changelog/020.user_problem_file_name.sql
+  - include:
+      file: db/changelog/021.user_delete_fields.sql
+  - include:
+      file: db/changelog/022.users_set_state_other.sql

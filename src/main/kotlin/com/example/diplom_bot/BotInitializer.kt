@@ -89,21 +89,12 @@ class BotInitializer(
                     bot.sendMessage(chatId = ChatId.fromId(message.chat.id), text = "Бот был перезагружен")
                 }
 
-                myCommand("updatemyinfo") { user ->
+                myCommand("updatemyphone") { user ->
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
-                        text = """
-                            Ваши данные:
-                            ФИО - ${user.name ?: ""}
-                            Телефон - ${user.phone ?: ""}
-                            Адрес - ${user.address ?: ""}
-                            Номер кабинета - ${user.officeNumber ?: ""}
-                        """.trimIndent(),
+                        text = "Ваш телефон - ${user.phone ?: ""}",
                         replyMarkup = listOf(
-                            Button(CallbackData.UPDATE_NAME, "Обновить ФИО"),
-                            Button(CallbackData.UPDATE_PHONE, "Обновить номер телефон"),
-                            Button(CallbackData.UPDATE_ADDRESS, "Обновить рабочий адрес"),
-                            Button(CallbackData.UPDATE_OFFICE_NUMBER, "Обновить рабочий номер кабинета")
+                            Button(CallbackData.UPDATE_PHONE, "Обновить номер телефона"),
                         ).toInlineKeyboardMarkup()
                     )
                 }
@@ -204,9 +195,9 @@ class BotInitializer(
                             if (fileId != null) {
                                 val file = File.createTempFile("user_screenshot", "")
                                 FileUtils.writeByteArrayToFile(file, bot.downloadFileBytes(fileId)!!)
-                                userProblemService.sendProblemToSupport(user, file)
+                                userProblemService.sendProblemToSupport(user, callbackQuery.message?.chat?.username, file)
                             } else {
-                                userProblemService.sendProblemToSupport(user)
+                                userProblemService.sendProblemToSupport(user, callbackQuery.message?.chat?.username)
                             }
                             sendMessage(
                                 "Ваша заявка отправлена. Ожидайте звонка",
@@ -214,20 +205,18 @@ class BotInitializer(
                             )
                         }
 
-                        UserAction.UPDATE_NAME -> {
-                            sendMessage("Пожалуйста, напишите свои ФИО")
-                        }
-
                         UserAction.UPDATE_PHONE -> {
-                            sendMessage("Пожалуйста, напишите свой номер телефона")
-                        }
-
-                        UserAction.UPDATE_ADDRESS -> {
-                            sendMessage("Пожалуйста, напишите свой рабочий адрес")
-                        }
-
-                        UserAction.UPDATE_OFFICE_NUMBER -> {
-                            sendMessage("Пожалуйста, напишите свой рабочий номер кабинета")
+                            bot.sendMessage(
+                                chatId = ChatId.fromId(callbackQuery.message?.chat?.id!!),
+                                text = "Пожалуйста поделитесь контактом или напишите контактный номер телефона",
+                                replyMarkup = KeyboardReplyMarkup(
+                                    KeyboardButton(
+                                        "Отправить контакт",
+                                        requestContact = true
+                                    ),
+                                    resizeKeyboard = true
+                                )
+                            )
                         }
                     }
 
@@ -282,39 +271,12 @@ class BotInitializer(
                             }
                         }
 
-                        User.State.SENDING_NAME -> {
-                            user.name = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваше имя"
-                            )
-                            bot.handleBotSendingTicket(user)
-                        }
-
                         User.State.SENDING_PHONE -> {
                             user.phone = text
                             bot.sendMessage(
                                 chatId = ChatId.fromId(user.chatId),
                                 text = "Я записал Ваш номер",
                                 replyMarkup = ReplyKeyboardRemove()
-                            )
-                            bot.handleBotSendingTicket(user)
-                        }
-
-                        User.State.SENDING_ADDRESS -> {
-                            user.address = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваш адрес"
-                            )
-                            bot.handleBotSendingTicket(user)
-                        }
-
-                        User.State.SENDING_OFFICE_NUMBER -> {
-                            user.officeNumber = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваш номер кабинета"
                             )
                             bot.handleBotSendingTicket(user)
                         }
@@ -326,15 +288,6 @@ class BotInitializer(
 
                         User.State.SENDING_SCREENSHOTS -> {}
 
-                        User.State.UPDATING_NAME -> {
-                            user.state = User.State.OTHER
-                            user.name = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваше имя"
-                            )
-                        }
-
                         User.State.UPDATING_PHONE -> {
                             user.state = User.State.OTHER
                             user.phone = text
@@ -342,24 +295,6 @@ class BotInitializer(
                                 chatId = ChatId.fromId(user.chatId),
                                 text = "Я записал Ваш номер",
                                 replyMarkup = ReplyKeyboardRemove()
-                            )
-                        }
-
-                        User.State.UPDATING_ADDRESS -> {
-                            user.state = User.State.OTHER
-                            user.address = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваш адрес"
-                            )
-                        }
-
-                        User.State.UPDATING_OFFICE_NUMBER -> {
-                            user.state = User.State.OTHER
-                            user.officeNumber = text
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = "Я записал Ваш номер кабинета"
                             )
                         }
 
@@ -384,7 +319,15 @@ class BotInitializer(
                         text = "Контакт получен",
                         replyMarkup = ReplyKeyboardRemove()
                     )
-                    bot.handleBotSendingTicket(user)
+                    if (user.state == User.State.UPDATING_PHONE) {
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(user.chatId),
+                            text = "Я записал Ваш номер",
+                            replyMarkup = ReplyKeyboardRemove()
+                        )
+                    } else {
+                        bot.handleBotSendingTicket(user)
+                    }
                 }
 
                 myPhotos { user ->
@@ -463,14 +406,6 @@ class BotInitializer(
 
     private fun Bot.handleBotSendingTicket(user: User) {
         val chatId = ChatId.fromId(user.chatId)
-        if (user.name == null) {
-            user.state = User.State.SENDING_NAME
-            sendMessage(
-                chatId = chatId,
-                text = "Напишите пожалуйста свои ФИО"
-            )
-            return
-        }
         if (user.phone == null) {
             user.state = User.State.SENDING_PHONE
             sendMessage(
@@ -483,22 +418,6 @@ class BotInitializer(
                     ),
                     resizeKeyboard = true
                 )
-            )
-            return
-        }
-        if (user.address == null) {
-            user.state = User.State.SENDING_ADDRESS
-            sendMessage(
-                chatId = chatId,
-                text = "Напишите пожалуйста рабочий адрес"
-            )
-            return
-        }
-        if (user.officeNumber == null) {
-            user.state = User.State.SENDING_OFFICE_NUMBER
-            sendMessage(
-                chatId = chatId,
-                text = "Напишите пожалуйста номер рабочего кабинета"
             )
             return
         }
