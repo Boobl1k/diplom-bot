@@ -1,5 +1,7 @@
 # Mansur's DIS chat-dot
 
+[Ссылка на бота](https://t.me/mansur_dis_bot)
+
 ## Переменные
 
 * BOT_TOKEN - api токен телеграм бота
