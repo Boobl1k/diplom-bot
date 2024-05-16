@@ -15,6 +15,9 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_SENDER_EMAIL=${MAIL_SENDER_EMAIL}
       - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+      - LLM_URL=llm:11434
+      - LLM_SUB_PATH=v1/chat/
+      - LLM_MODEL_NAME=saiga
     restart: always
     depends_on:
       db:
@@ -28,6 +31,22 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: always
+  llm:
+    image: ollama/ollama
+    volumes:
+      - llm-data:/root/.ollama
+      - ./llama:/llama/
+      - llm-model:/model/
+    entrypoint: sh -c /llama/init.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 volumes:
   db-data:
+  llm-data:
+  llm-model:

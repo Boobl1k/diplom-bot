@@ -24,7 +24,9 @@ class User(
         SENDING_PROBLEM_DETAILS,
         SENDING_SCREENSHOTS,
 
-        UPDATING_PHONE
+        UPDATING_PHONE,
+
+        TALKING_WITH_LLM
     }
 
     var phone: String? = null

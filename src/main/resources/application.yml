@@ -32,3 +32,6 @@ bot-properties:
   kfu-access-key: ${KFU_ACCESS_KEY}
   mail-sender-email: ${MAIL_SENDER_EMAIL}
   support-email: ${SUPPORT_EMAIL}
+  llm-url: ${LLM_URL}
+  llm-sub-path: ${LLM_SUB_PATH}
+  llm-model-name: ${LLM_MODEL_NAME}

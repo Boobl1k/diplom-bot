@@ -7,5 +7,6 @@ data class ChatBotProperties(
     val botToken: String,
     val kfuAccessKey: String,
     val mailSenderEmail: String,
-    val supportEmail: String
+    val supportEmail: String,
+    val llmModelName: String
 )

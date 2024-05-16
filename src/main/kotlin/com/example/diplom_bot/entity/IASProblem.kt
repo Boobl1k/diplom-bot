@@ -11,6 +11,7 @@ class IASProblem(
     description: String,
     externalDisProblemId: Int,
     enabled: Boolean,
+    llmName: String?,
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "problem")
     val iasModules: List<IASModule>
-) : DisProblem(problemGroup, name, description, externalDisProblemId, enabled)
+) : DisProblem(problemGroup, name, description, externalDisProblemId, enabled, llmName)

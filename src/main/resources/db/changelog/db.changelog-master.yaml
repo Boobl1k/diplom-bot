@@ -43,3 +43,9 @@ databaseChangeLog:
       file: db/changelog/021.user_delete_fields.sql
   - include:
       file: db/changelog/022.users_set_state_other.sql
+  - include:
+      file: db/changelog/023.dis_problem_llm_names.sql
+  - include:
+      file: db/changelog/024.dis_problem_name_values.sql
+  - include:
+      file: db/changelog/025.new_llm_names.sql

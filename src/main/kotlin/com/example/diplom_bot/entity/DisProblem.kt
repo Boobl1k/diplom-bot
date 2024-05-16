@@ -10,7 +10,8 @@ open class DisProblem(
     open var name: String,
     open val description: String,
     open val externalDisProblemId: Int,
-    open var enabled: Boolean
+    open var enabled: Boolean,
+    open val llmName: String?
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

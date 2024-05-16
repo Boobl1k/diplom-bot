@@ -11,6 +11,12 @@ enum class UserAction {
         override val userStateAfterAction: User.State
             get() = User.State.WRITING_DESCRIPTION
     },
+    GO_TALK_WITH_LLM {
+        override val callBackPrefix: String
+            get() = CallbackData.GO_TALK_WITH_LLM
+        override val userStateAfterAction: User.State
+            get() = User.State.TALKING_WITH_LLM
+    },
     GO_CHOOSE {
         override val callBackPrefix: String
             get() = CallbackData.GO_CHOOSE
@@ -65,6 +71,18 @@ enum class UserAction {
             get() = CallbackData.UPDATE_PHONE
         override val userStateAfterAction: User.State
             get() = User.State.UPDATING_PHONE
+    },
+    CONTINUE_TALKING_WITH_LLM {
+        override val callBackPrefix: String
+            get() = CallbackData.NOT_MY_PROBLEM
+        override val userStateAfterAction: User.State
+            get() = User.State.TALKING_WITH_LLM
+    },
+    REGENERATE {
+        override val callBackPrefix: String
+            get() = CallbackData.REGENERATE
+        override val userStateAfterAction: User.State
+            get() = User.State.TALKING_WITH_LLM
     };
 
     abstract val callBackPrefix: String

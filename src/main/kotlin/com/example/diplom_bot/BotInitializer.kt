@@ -3,14 +3,10 @@ package com.example.diplom_bot
 import com.example.diplom_bot.entity.IASProblem
 import com.example.diplom_bot.entity.User
 import com.example.diplom_bot.enum.UserAction
-import com.example.diplom_bot.model.BotProblemUnit
-import com.example.diplom_bot.model.Button
+import com.example.diplom_bot.model.*
 import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.ProblemGroupRepository
-import com.example.diplom_bot.service.DisProblemService
-import com.example.diplom_bot.service.KeyWordService
-import com.example.diplom_bot.service.UserProblemService
-import com.example.diplom_bot.service.UserService
+import com.example.diplom_bot.service.*
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -47,7 +43,8 @@ class BotInitializer(
     private val disProblemService: DisProblemService,
     private val userService: UserService,
     private val userProblemService: UserProblemService,
-    private val txTemplate: TransactionTemplate
+    private val txTemplate: TransactionTemplate,
+    private val llmChatService: LLMChatService
 ) : ApplicationRunner {
     companion object : KLogging()
 
@@ -77,19 +74,15 @@ class BotInitializer(
             logLevel = LogLevel.Error
             dispatch {
                 myCommand("start") {
-                    bot.sendStartMessage(ChatId.fromId(message.chat.id))
+                    bot.sendStartMessage(message.chat.id)
                 }
 
                 myCommand("solvemyproblem") {
-                    bot.sendStartMessage(ChatId.fromId(message.chat.id))
-                }
-
-                myCommand("reload") {
-                    loadProblemUnits()
-                    bot.sendMessage(chatId = ChatId.fromId(message.chat.id), text = "Бот был перезагружен")
+                    bot.sendStartMessage(message.chat.id)
                 }
 
                 myCommand("updatemyphone") { user ->
+                    llmChatService.clearHistory(user.chatId)
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
                         text = "Ваш телефон - ${user.phone ?: ""}",
@@ -111,6 +104,7 @@ class BotInitializer(
 
                     when (action) {
                         UserAction.CHOOSE -> {
+                            llmChatService.clearHistory(user.chatId)
                             val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
                             if (unit is BotProblemUnit.DisProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity
@@ -137,6 +131,7 @@ class BotInitializer(
                         }
 
                         UserAction.GO_BACK -> {
+                            llmChatService.clearHistory(user.chatId)
                             val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
                             if (unit is BotProblemUnit.GroupBotProblemUnit) {
                                 userProblemService.clearCurrentProblem(user)
@@ -145,6 +140,7 @@ class BotInitializer(
                         }
 
                         UserAction.GO_WRITE_DESCRIPTION -> {
+                            llmChatService.clearHistory(user.chatId)
                             editMessage(
                                 "Напишите краткое описание проблемы, я постараюсь определить Вашу проблему",
                                 listOf(Button(CallbackData.GO_START, "Назад"))
@@ -152,14 +148,17 @@ class BotInitializer(
                         }
 
                         UserAction.GO_CHOOSE -> {
+                            llmChatService.clearHistory(user.chatId)
                             editMessage(rootUnit.headerText, rootUnit.buttons)
                         }
 
                         UserAction.GO_START -> {
-                            bot.sendStartMessage(ChatId.fromId(callbackQuery.message?.chat?.id!!))
+                            llmChatService.clearHistory(user.chatId)
+                            bot.sendStartMessage(callbackQuery.message?.chat?.id!!)
                         }
 
                         UserAction.GO_SEND_TICKET -> {
+                            llmChatService.clearHistory(user.chatId)
                             sendMessage(
                                 "Если вы хотите создать заявку самостоятельно, я могу предоставить вам инструкции. Или я могу сделать это за вас. Какой вариант вас интересует?",
                                 listOf(
@@ -170,10 +169,12 @@ class BotInitializer(
                         }
 
                         UserAction.BOT_SEND_TICKET -> {
+                            llmChatService.clearHistory(user.chatId)
                             bot.handleBotSendingTicket(user)
                         }
 
                         UserAction.SEND_TICKET_BY_MYSELF -> {
+                            llmChatService.clearHistory(user.chatId)
                             val disProblem = userProblemService.getCurrentProblem(user).disProblem!!
                             sendMessage(
                                 text = """
@@ -191,11 +192,16 @@ class BotInitializer(
                         }
 
                         UserAction.SEND_TICKET_SURE -> {
+                            llmChatService.clearHistory(user.chatId)
                             val fileId = user.currentProblem!!.fileId
                             if (fileId != null) {
                                 val file = File.createTempFile("user_screenshot", "")
                                 FileUtils.writeByteArrayToFile(file, bot.downloadFileBytes(fileId)!!)
-                                userProblemService.sendProblemToSupport(user, callbackQuery.message?.chat?.username, file)
+                                userProblemService.sendProblemToSupport(
+                                    user,
+                                    callbackQuery.message?.chat?.username,
+                                    file
+                                )
                             } else {
                                 userProblemService.sendProblemToSupport(user, callbackQuery.message?.chat?.username)
                             }
@@ -206,6 +212,7 @@ class BotInitializer(
                         }
 
                         UserAction.UPDATE_PHONE -> {
+                            llmChatService.clearHistory(user.chatId)
                             bot.sendMessage(
                                 chatId = ChatId.fromId(callbackQuery.message?.chat?.id!!),
                                 text = "Пожалуйста поделитесь контактом или напишите контактный номер телефона",
@@ -217,6 +224,23 @@ class BotInitializer(
                                     resizeKeyboard = true
                                 )
                             )
+                        }
+
+                        UserAction.GO_TALK_WITH_LLM -> {
+                            sendMessage(
+                                "Напишите что у вас случилось. Я постараюсь помочь Вам",
+                                listOf(Button(CallbackData.GO_START, "В начало"))
+                            )
+                        }
+
+                        UserAction.CONTINUE_TALKING_WITH_LLM -> {
+                            val llmResponse = llmChatService.sendNotMyProblem(user.chatId)
+                            bot.handleLLMResponse(user.chatId, llmResponse)
+                        }
+
+                        UserAction.REGENERATE -> {
+                            val llmResponse = llmChatService.regenerate(user.chatId)
+                            bot.handleLLMResponse(user.chatId, llmResponse)
                         }
                     }
 
@@ -299,15 +323,12 @@ class BotInitializer(
                         }
 
                         User.State.OTHER -> {
-                            bot.sendMessage(
-                                chatId = ChatId.fromId(user.chatId),
-                                text = """
-                                    Мои команды:
-                                    1. /start - старт
-                                    2. /solvemyproblem - попросить бота помочь решить Вашу проблему
-                                    3. /updatemyinfo - обновить Ваши данные
-                                """.trimIndent()
-                            )
+                            user.state = User.State.TALKING_WITH_LLM
+                            bot.handleLLMResponse(user.chatId, llmChatService.sendMessage(user.chatId, text))
+                        }
+
+                        User.State.TALKING_WITH_LLM -> {
+                            bot.handleLLMResponse(user.chatId, llmChatService.sendMessage(user.chatId, text))
                         }
                     }
                 }
@@ -405,6 +426,7 @@ class BotInitializer(
     }
 
     private fun Bot.handleBotSendingTicket(user: User) {
+        llmChatService.clearHistory(user.chatId)
         val chatId = ChatId.fromId(user.chatId)
         if (user.phone == null) {
             user.state = User.State.SENDING_PHONE
@@ -497,7 +519,8 @@ class BotInitializer(
         )
     }
 
-    private fun Bot.sendStartMessage(chatId: ChatId.Id) {
+    private fun Bot.sendStartMessage(chatId: Long) {
+        llmChatService.clearHistory(chatId)
         sendMessage(
             chatId = chatId,
             text = """
@@ -505,10 +528,11 @@ class BotInitializer(
                 1. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
                 2. Я вам предлагаю категории, Вы выбираете нужную
             """.trimIndent(),
-            replyMarkup = listOf(
+            buttons = listOf(
                 Button(UserAction.GO_WRITE_DESCRIPTION.callBackPrefix, "Хочу написать описание"),
+                Button(UserAction.GO_TALK_WITH_LLM.callBackPrefix, "Хочу пообщаться"),
                 Button(UserAction.GO_CHOOSE.callBackPrefix, "Хочу выбирать категории")
-            ).toInlineKeyboardMarkup()
+            )
         )
     }
 
@@ -521,5 +545,36 @@ class BotInitializer(
                 )
             )
         })
+    }
+
+    private fun Bot.sendMessage(chatId: Long, text: String, buttons: List<Button>? = null) {
+        sendMessage(
+            chatId = ChatId.fromId(chatId),
+            text = text,
+            replyMarkup = buttons?.toInlineKeyboardMarkup()
+        )
+    }
+
+    private fun Bot.handleLLMResponse(chatId: Long, llmResponse: LLMResponse) {
+        when (llmResponse) {
+            is LLMProblemTypeResponse -> {
+                sendMessage(
+                    chatId = chatId,
+                    text = "Определен вид проблемы - ${llmResponse.disProblem.name}",
+                    listOf(
+                        Button(llmResponse.disProblem.chooseCallbackData, "Продолжить"),
+                        Button(CallbackData.NOT_MY_PROBLEM, "Попробовать еще раз")
+                    )
+                )
+            }
+
+            is LLMQuestionResponse -> {
+                sendMessage(
+                    chatId = chatId,
+                    llmResponse.question,
+                    listOf(Button(CallbackData.REGENERATE, "\uD83D\uDD04"))
+                )
+            }
+        }
     }
 }
