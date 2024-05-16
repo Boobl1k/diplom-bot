@@ -2,7 +2,7 @@ services:
   bot:
     build:
       context: .
-    image: mansoooor/diplom-bot
+    image: mansoooor/diplom-bot:llm-01
     environment:
       - DB=db
       - BOT_TOKEN=${BOT_TOKEN}
