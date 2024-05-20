@@ -49,3 +49,5 @@ databaseChangeLog:
       file: db/changelog/024.dis_problem_name_values.sql
   - include:
       file: db/changelog/025.new_llm_names.sql
+  - include:
+      file: db/changelog/026.update_ias_llm_names.sql
