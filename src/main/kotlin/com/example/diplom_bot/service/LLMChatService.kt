@@ -8,6 +8,7 @@ import com.example.diplom_bot.entity.DisProblem
 import com.example.diplom_bot.model.LLMProblemTypeResponse
 import com.example.diplom_bot.model.LLMQuestionResponse
 import com.example.diplom_bot.model.LLMResponse
+import com.example.diplom_bot.model.LLMResponseContent
 import com.example.diplom_bot.property.ChatBotProperties
 import com.example.diplom_bot.repository.DisProblemRepository
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -16,28 +17,25 @@ import mu.KLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.Resource
 import org.springframework.stereotype.Service
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
 
 @Service
 class LLMChatService(
     private val llmChatClient: LLMChatClient,
     @Value("classpath:llm-context.json")
     private val llmContextResource: Resource,
-    objectMapper: ObjectMapper,
+    private val objectMapper: ObjectMapper,
     private val chatBotProperties: ChatBotProperties,
     disProblemRepository: DisProblemRepository
 ) {
-    companion object : KLogging()
+    companion object : KLogging() {
+        const val BAD_RESPONSE_TEXT = "Мне не удалось определить вид Вашей проблемы. Пожалуйста, попробуйте еще раз"
+    }
 
     private val context: List<LLMChatMessage> = objectMapper.readValue(llmContextResource.inputStream)
 
     private val allProblemTypes = disProblemRepository.findAll()
 
     private val historyMap = mutableMapOf<Long, MutableList<LLMChatMessage>>()
-
-    private val threadPool = Executors.newFixedThreadPool(5)
 
     fun sendMessage(chatId: Long, message: String): LLMResponse {
         if (!historyMap.containsKey(chatId)) {
@@ -47,24 +45,15 @@ class LLMChatService(
         val history = historyMap[chatId]!!
         history += LLMChatMessage("user", message)
 
-        val responses = getCompletions(LLMChatRequest(chatBotProperties.llmModelName, history))
-            .map { it.choices[0].message }
+        val response = getCompletions(LLMChatRequest(chatBotProperties.llmModelName, history))
 
-        val problemType = responses.mapNotNull { getProblemTypeFromAnswer(it.content) }
-            .groupingBy { it }
-            .eachCount()
-            .maxByOrNull { it.value }
-
-        if (problemType != null && problemType.value >= 2) {
-            val rightResponse = responses.first {
-                getProblemTypeFromAnswer(it.content) == problemType.key
-            }
-            history.add(rightResponse)
-            return LLMProblemTypeResponse(problemType.key)
-        } else {
-            history.add(responses.first())
-            return LLMQuestionResponse(responses.first().content)
-        }
+        return response.llmChatContent?.let { llmChatContent ->
+            if (llmChatContent.problemType != null) {
+                getProblemTypeFromString(llmChatContent.problemType)?.let { LLMProblemTypeResponse(it) }
+                    ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
+            } else llmChatContent.question?.let { LLMQuestionResponse(it) }
+                ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
+        } ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
     }
 
     fun sendNotMyProblem(chatId: Long): LLMResponse {
@@ -76,8 +65,11 @@ class LLMChatService(
 
     fun regenerate(chatId: Long): LLMResponse {
         val history = historyMap[chatId]!!
-        history.removeLast()
+        if (history.last().role == "assistant") {
+            history.removeLast()
+        }
         val last = history.last()
+        history.removeLast()
         return sendMessage(chatId, last.content)
     }
 
@@ -85,19 +77,28 @@ class LLMChatService(
         historyMap.remove(chatId)
     }
 
-    private fun getCompletions(llmChatRequest: LLMChatRequest): List<LLMChatResponse> {
-        val features = mutableListOf<Future<LLMChatResponse>>()
-        repeat(5) {
-            features.add(threadPool.submit(Callable {
-                val completions = llmChatClient.postCompletions(llmChatRequest)
-                println(completions.choices[0].message.content)
-                completions
-            }))
-        }
-        return features.map { it.get() }
+    private fun getCompletions(llmChatRequest: LLMChatRequest): LLMChatResponse {
+        val completions = llmChatClient.postCompletions(llmChatRequest)
+        println(completions.choices[0].message.content)
+        return completions
     }
 
-    private fun getProblemTypeFromAnswer(answer: String): DisProblem? {
-        return allProblemTypes.firstOrNull { it.llmName != null && answer.contains(it.llmName!!, ignoreCase = true) }
+    private val LLMChatResponse.llmChatContent
+        get() = run {
+            try {
+                objectMapper.readValue<LLMResponseContent>(this.choices[0].message.content)
+            } catch (e: Exception) {
+                logger.warn { e }
+                null
+            }
+        }
+
+    private fun getProblemTypeFromString(str: String?): DisProblem? {
+        return str?.let {
+            allProblemTypes.firstOrNull {
+                it.llmName != null &&
+                        (str.contains(it.llmName!!, ignoreCase = true) || it.llmName!!.contains(str, ignoreCase = true))
+            }
+        }
     }
 }

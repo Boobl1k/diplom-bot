@@ -562,6 +562,7 @@ class BotInitializer(
                     chatId = chatId,
                     text = "Определен вид проблемы - ${llmResponse.disProblem.name}",
                     listOf(
+                        Button(CallbackData.REGENERATE, "\uD83D\uDD04"),
                         Button(llmResponse.disProblem.chooseCallbackData, "Продолжить"),
                         Button(CallbackData.NOT_MY_PROBLEM, "Попробовать еще раз")
                     )
