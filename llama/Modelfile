@@ -1,7 +1,8 @@
-FROM "/model/model.gguf"
+FROM "/model/llama3-tuned.gguf"
 
 PARAMETER stop "<|start_header_id|>"
 PARAMETER stop "<|end_header_id|>"
+PARAMETER temperature 0.5
 
 TEMPLATE """
 <|begin_of_text|><|start_header_id|>system<|end_header_id|>

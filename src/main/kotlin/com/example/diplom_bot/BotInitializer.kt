@@ -106,24 +106,24 @@ class BotInitializer(
                         UserAction.CHOOSE -> {
                             llmChatService.clearHistory(user.chatId)
                             val unit = allUnits.find { it.chooseCallbackData == callbackQuery.data }!!
-                            if (unit is BotProblemUnit.DisProblemBotProblemUnit) {
+                            if (unit is DisProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity
                                 userProblemService.getCurrentProblem(user).iasService = null
                                 userProblemService.getCurrentProblem(user).iasModule = null
                             }
-                            if (unit is BotProblemUnit.ProblemBotProblemUnit) {
+                            if (unit is ProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity.disProblem
                                 userProblemService.getCurrentProblem(user).problemCase = unit.entity
                                 userProblemService.getCurrentProblem(user).iasService = null
                                 userProblemService.getCurrentProblem(user).iasModule = null
                             }
-                            if (unit is BotProblemUnit.IASProblemBotProblemUnit) {
+                            if (unit is IASProblemBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).disProblem = unit.entity
                             }
-                            if (unit is BotProblemUnit.IASModuleBotProblemUnit) {
+                            if (unit is IASModuleBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).iasModule = unit.entity
                             }
-                            if (unit is BotProblemUnit.IASServiceBotProblemUnit) {
+                            if (unit is IASServiceBotProblemUnit) {
                                 userProblemService.getCurrentProblem(user).iasModule = unit.entity.iasModule
                                 userProblemService.getCurrentProblem(user).iasService = unit.entity
                             }
@@ -133,7 +133,7 @@ class BotInitializer(
                         UserAction.GO_BACK -> {
                             llmChatService.clearHistory(user.chatId)
                             val unit = allUnits.find { it.goBackCallbackData == callbackQuery.data }!!
-                            if (unit is BotProblemUnit.GroupBotProblemUnit) {
+                            if (unit is GroupBotProblemUnit) {
                                 userProblemService.clearCurrentProblem(user)
                             }
                             editMessage(unit.parent!!.headerText, unit.parent.buttons)
@@ -228,7 +228,7 @@ class BotInitializer(
 
                         UserAction.GO_TALK_WITH_LLM -> {
                             sendMessage(
-                                "Напишите что у вас случилось. Я постараюсь помочь Вам",
+                                "Напишите что у Вас случилось. Я постараюсь помочь Вам",
                                 listOf(Button(CallbackData.GO_START, "В начало"))
                             )
                         }
@@ -524,14 +524,15 @@ class BotInitializer(
         sendMessage(
             chatId = chatId,
             text = """
-                Я предлагаю Вам 2 варианта определения проблемы:
-                1. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
-                2. Я вам предлагаю категории, Вы выбираете нужную
+                Я предлагаю Вам три варианта определения проблемы:
+                1. Я вам предлагаю категории, Вы выбираете нужную
+                2. Вы вводите описание проблемы, затем я предложу вам несколько видов проблем, Вы выберите свою
+                3. Вы рассказываете что случилось, я задаю уточняющие вопросы пока мы не определим вид проблемы
             """.trimIndent(),
             buttons = listOf(
+                Button(UserAction.GO_CHOOSE.callBackPrefix, "Хочу выбирать категории"),
                 Button(UserAction.GO_WRITE_DESCRIPTION.callBackPrefix, "Хочу написать описание"),
                 Button(UserAction.GO_TALK_WITH_LLM.callBackPrefix, "Хочу пообщаться"),
-                Button(UserAction.GO_CHOOSE.callBackPrefix, "Хочу выбирать категории")
             )
         )
     }
@@ -560,7 +561,7 @@ class BotInitializer(
             is LLMProblemTypeResponse -> {
                 sendMessage(
                     chatId = chatId,
-                    text = "Определен вид проблемы - ${llmResponse.disProblem.name}",
+                    text = "Определен вид проблемы - ${llmResponse.disProblem.problemGroup.name} - ${llmResponse.disProblem.name}",
                     listOf(
                         Button(CallbackData.REGENERATE, "\uD83D\uDD04"),
                         Button(llmResponse.disProblem.chooseCallbackData, "Продолжить"),

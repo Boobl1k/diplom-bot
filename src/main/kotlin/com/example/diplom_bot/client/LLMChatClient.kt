@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 
 @FeignClient(
-    name = "GPT",
+    name = "LLM",
     url = "\${bot-properties.llm-url}",
     path = "\${bot-properties.llm-sub-path}"
 )

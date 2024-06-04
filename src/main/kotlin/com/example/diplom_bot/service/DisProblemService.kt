@@ -25,7 +25,7 @@ class DisProblemService(
 
         entities.forEach { entity ->
             val external = externalProblemTypesList.find { it.id == entity.externalDisProblemId }
-            //entity.enabled = external != null
+            entity.enabled = external != null
             if (external != null) {
                 entity.name = external.name
             }
@@ -58,14 +58,12 @@ class DisProblemService(
                 regex.findAll(formattedDescription).count().toLong() * keyword.weight
             } to it
         }
-        problemsWithScores.sortedByDescending { it.first }.take(10).forEach {
-            logger.debug("{} {}", it.first, it.second.name)
-        }
 
         return problemsWithScores
             .filter { it.first > 5 }
             .sortedByDescending { it.first }
             .take(5)
+            .onEach { logger.debug("{} {}", it.first, it.second.name) }
             .map { it.second }
     }
 

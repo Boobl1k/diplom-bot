@@ -31,9 +31,9 @@ class LLMChatService(
         const val BAD_RESPONSE_TEXT = "Мне не удалось определить вид Вашей проблемы. Пожалуйста, попробуйте еще раз"
     }
 
-    private val context: List<LLMChatMessage> = objectMapper.readValue(llmContextResource.inputStream)
-
     private val allProblemTypes = disProblemRepository.findAll()
+
+    private val context: List<LLMChatMessage> = objectMapper.readValue(llmContextResource.inputStream)
 
     private val historyMap = mutableMapOf<Long, MutableList<LLMChatMessage>>()
 
@@ -47,12 +47,14 @@ class LLMChatService(
 
         val response = getCompletions(LLMChatRequest(chatBotProperties.llmModelName, history))
 
-        return response.llmChatContent?.let { llmChatContent ->
+        return response.llmResponseContent?.let { llmChatContent ->
             if (llmChatContent.problemType != null) {
                 getProblemTypeFromString(llmChatContent.problemType)?.let { LLMProblemTypeResponse(it) }
                     ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
-            } else llmChatContent.question?.let { LLMQuestionResponse(it) }
-                ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
+            } else {
+                llmChatContent.question?.let { LLMQuestionResponse(it) }
+                    ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
+            }
         } ?: LLMQuestionResponse(BAD_RESPONSE_TEXT)
     }
 
@@ -83,10 +85,15 @@ class LLMChatService(
         return completions
     }
 
-    private val LLMChatResponse.llmChatContent
+    private val LLMChatResponse.llmResponseContent
         get() = run {
             try {
-                objectMapper.readValue<LLMResponseContent>(this.choices[0].message.content)
+                val content = this.choices[0].message.content
+                objectMapper.readValue<LLMResponseContent>(
+                    content.subSequence(
+                        content.indexOfLast { it == '{' },
+                        content.indexOfFirst { it == '}' } + 1).toString()
+                )
             } catch (e: Exception) {
                 logger.warn { e }
                 null
