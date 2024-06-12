@@ -1,4 +1,4 @@
-# Mansur's DIS chat-dot
+# Mansur's Chatbot for service desk KFU
 
 [Ссылка на бота](https://t.me/mansur_dis_bot)
 
