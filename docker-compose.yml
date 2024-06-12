@@ -17,7 +17,7 @@ services:
       - SUPPORT_EMAIL=${SUPPORT_EMAIL}
       - LLM_URL=llm:11434
       - LLM_SUB_PATH=v1/chat/
-      - LLM_MODEL_NAME=saiga
+      - LLM_MODEL_NAME=llama3-tuned
     restart: always
     depends_on:
       db:
