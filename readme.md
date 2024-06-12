@@ -38,3 +38,11 @@
 4. На сервере обновить файл `docker-compose.yml`
 5. На сервере `docker compose pull`
 6. На сервере `docker compose --env-file ./env up -d`
+
+## Ссылки
+
+[Репозиторий в gitlab KPFU](https://git.kpfu.ru/MMAkhmatov/chatbot-for-service-desk-kfu)  
+[Ноутбук для дообучения модели](https://colab.research.google.com/drive/1bJLS_fBXCExYqrFOaNBJLRVbBotOw0fw?usp=sharing)  
+[Датасет для дообучения llama3](https://huggingface.co/datasets/mansooooor/llama3-fine-tuning-dataset)  
+[Дообученная модель](https://huggingface.co/mansooooor/llama3-fine-tuned)  
+[Преобразованная модель](https://huggingface.co/mansooooor/llama3-fine-tuned-gguf)  
